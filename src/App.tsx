@@ -11,36 +11,35 @@ import {
 import {
   IconCalendar,
   IconClipboardCheck,
+  IconForms,
   IconMail,
   IconPencil,
+  IconQuestionMark,
+  IconRobot,
   IconTimeDuration0,
   IconTimeDuration15,
   IconUser,
 } from '@tabler/icons-react';
 import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
-import { DoseSpotIcon } from './components/DoseSpotIcon';
-import { hasDoseSpotIdentifier } from './components/utils';
+import { ResourceCreatePage } from './pages/resource/ResourceCreatePage';
 import { HomePage } from './pages/HomePage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { SearchPage } from './pages/SearchPage';
 import { SignInPage } from './pages/SignInPage';
-import { EncounterChart } from './pages/encounter/EncounterChart';
-import { EncounterModal } from './pages/encounter/EncounterModal';
-import { CommunicationTab } from './pages/patient/CommunicationTab';
-import { DoseSpotTab } from './pages/patient/DoseSpotTab';
 import { EditTab } from './pages/patient/EditTab';
-import { ExportTab } from './pages/patient/ExportTab';
+import { EncounterTab } from './pages/patient/EncounterTab';
 import { PatientPage } from './pages/patient/PatientPage';
 import { PatientSearchPage } from './pages/patient/PatientSearchPage';
-import { TaskTab } from './pages/patient/TaskTab';
 import { TimelineTab } from './pages/patient/TimelineTab';
-import { ResourceCreatePage } from './pages/resource/ResourceCreatePage';
 import { ResourceDetailPage } from './pages/resource/ResourceDetailPage';
 import { ResourceEditPage } from './pages/resource/ResourceEditPage';
 import { ResourceHistoryPage } from './pages/resource/ResourceHistoryPage';
 import { ResourcePage } from './pages/resource/ResourcePage';
-import { TaskDetails } from './pages/tasks/TaskDetails';
+import { CommunicationTab } from './pages/patient/CommunicationTab';
+import { TaskTab } from './pages/patient/TaskTab';
+import { UploadDataPage } from './pages/UploadDataPage';
+
 
 export function App(): JSX.Element | null {
   const medplum = useMedplum();
@@ -50,9 +49,6 @@ export function App(): JSX.Element | null {
   if (medplum.isLoading()) {
     return null;
   }
-
-  const membership = medplum.getProjectMembership();
-  const hasDoseSpot = hasDoseSpotIdentifier(membership);
 
   return (
     <AppShell
@@ -78,6 +74,28 @@ export function App(): JSX.Element | null {
             },
           ],
         },
+        {
+          title: 'Bots',
+          links: [
+            { icon: <IconRobot />, label: 'Upload Bot', href: '/upload/bot' },
+          ],
+        },
+        {
+          title: 'Questionnaires',
+          links: [
+            { icon: <IconForms />, label: 'New Questionnaire', href: '/Questionnaire/new' },
+            { icon: <IconQuestionMark />, label: 'Questionnaires', href: '/Questionnaire?_count=20&_fields=_lastUpdated&_offset=0&_sort=-_lastUpdated' },
+            { icon: <IconClipboardCheck />, label: 'Upload Questionnaire', href: '/upload/Questionnaire' },
+          ],
+        },
+        {
+          title: 'Questionnaire Responses',
+          links: [
+            { icon: <IconForms />, label: 'New Questionnaire Response', href: '/QuestionnaireResponse/new' },
+            { icon: <IconQuestionMark />, label: 'Questionnaire Responses', href: '/QuestionnaireResponse?_count=20&_fields=_lastUpdated&_offset=0&_sort=-_lastUpdated' },
+            { icon: <IconClipboardCheck />, label: 'Upload Questionnaire Response', href: '/upload/QuestionnaireResponse' },
+          ],
+        },        
         {
           title: 'Onboarding',
           links: [{ icon: <IconPencil />, label: 'New Patient', href: '/onboarding' }],
@@ -111,7 +129,6 @@ export function App(): JSX.Element | null {
                 )
               }
             />
-            {hasDoseSpot && <DoseSpotIcon />}
           </>
         )
       }
@@ -122,17 +139,12 @@ export function App(): JSX.Element | null {
             <>
               <Route path="/" element={<HomePage />} />
               <Route path="/Patient/:patientId" element={<PatientPage />}>
-                <Route path="Encounter/new" element={<EncounterModal />} />
-                <Route path="Encounter/:encounterId" element={<EncounterChart />}>
-                  <Route path="Task/:taskId" element={<TaskDetails />} />
-                </Route>
                 <Route path="edit" element={<EditTab />} />
+                <Route path="encounter" element={<EncounterTab />} />
                 <Route path="communication" element={<CommunicationTab />} />
                 <Route path="communication/:id" element={<CommunicationTab />} />
-                {hasDoseSpot && <Route path="dosespot" element={<DoseSpotTab />} />}
                 <Route path="task/:id/*" element={<TaskTab />} />
                 <Route path="timeline" element={<TimelineTab />} />
-                <Route path="export" element={<ExportTab />} />
                 <Route path=":resourceType" element={<PatientSearchPage />} />
                 <Route path=":resourceType/new" element={<ResourceCreatePage />} />
                 <Route path=":resourceType/:id" element={<ResourcePage />}>
@@ -142,10 +154,8 @@ export function App(): JSX.Element | null {
                 </Route>
                 <Route path="" element={<TimelineTab />} />
               </Route>
-              <Route path="Task/:id/*" element={<TaskTab />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
               <Route path="/signin" element={<SignInPage />} />
-              <Route path="/dosespot" element={<DoseSpotTab />} />
               <Route path="/:resourceType" element={<SearchPage />} />
               <Route path="/:resourceType/new" element={<ResourceCreatePage />} />
               <Route path="/:resourceType/:id" element={<ResourcePage />}>
@@ -153,6 +163,8 @@ export function App(): JSX.Element | null {
                 <Route path="edit" element={<ResourceEditPage />} />
                 <Route path="history" element={<ResourceHistoryPage />} />
               </Route>
+              <Route path="/upload/:dataType" element={<UploadDataPage />} />
+
             </>
           ) : (
             <>
