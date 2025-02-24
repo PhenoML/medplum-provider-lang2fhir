@@ -9,15 +9,11 @@ import {
   useMedplumProfile,
 } from '@medplum/react';
 import {
-  IconCalendar,
   IconClipboardCheck,
+  IconClipboardText,
   IconForms,
   IconMail,
-  IconPencil,
-  IconQuestionMark,
   IconRobot,
-  IconTimeDuration0,
-  IconTimeDuration15,
   IconUser,
 } from '@tabler/icons-react';
 import { Suspense } from 'react';
@@ -35,6 +31,7 @@ import { TimelineTab } from './pages/patient/TimelineTab';
 import { ResourceDetailPage } from './pages/resource/ResourceDetailPage';
 import { ResourceEditPage } from './pages/resource/ResourceEditPage';
 import { ResourceHistoryPage } from './pages/resource/ResourceHistoryPage';
+import { PreviewPage } from './pages/resource/PreviewPage';
 import { ResourcePage } from './pages/resource/ResourcePage';
 import { CommunicationTab } from './pages/patient/CommunicationTab';
 import { TaskTab } from './pages/patient/TaskTab';
@@ -59,47 +56,19 @@ export function App(): JSX.Element | null {
           links: [{ icon: <IconUser />, label: 'Patients', href: '/' }],
         },
         {
-          title: 'Scheduling',
-          links: [
-            { icon: <IconTimeDuration0 />, label: 'New Appointment', href: '/Appointment/new' },
-            {
-              icon: <IconTimeDuration15 />,
-              label: 'Appointment Requests',
-              href: '/Appointment?_count=20&_fields=_lastUpdated,patient,practitioner,start,end,serviceType&_offset=0&_sort=-_lastUpdated&status=proposed',
-            },
-            {
-              icon: <IconCalendar />,
-              label: 'Upcoming Appointments',
-              href: '/Appointment?_count=20&_fields=_lastUpdated,patient,practitioner,start,end,serviceType&_offset=0&_sort=-_lastUpdated&status=booked',
-            },
-          ],
-        },
-        {
           title: 'Bots',
           links: [
             { icon: <IconRobot />, label: 'Upload Bot', href: '/upload/bot' },
           ],
         },
         {
-          title: 'Questionnaires',
+          title: 'Upload Forms',
           links: [
-            { icon: <IconForms />, label: 'New Questionnaire', href: '/Questionnaire/new' },
-            { icon: <IconQuestionMark />, label: 'Questionnaires', href: '/Questionnaire?_count=20&_fields=_lastUpdated&_offset=0&_sort=-_lastUpdated' },
-            { icon: <IconClipboardCheck />, label: 'Upload Questionnaire', href: '/upload/Questionnaire' },
+            { icon: <IconClipboardText />, label: 'Upload Questionnaire', href: '/upload/Questionnaire' },
+            { icon: <IconForms />, label: 'Upload Questionnaire Response', href: '/upload/QuestionnaireResponse' },
+
           ],
-        },
-        {
-          title: 'Questionnaire Responses',
-          links: [
-            { icon: <IconForms />, label: 'New Questionnaire Response', href: '/QuestionnaireResponse/new' },
-            { icon: <IconQuestionMark />, label: 'Questionnaire Responses', href: '/QuestionnaireResponse?_count=20&_fields=_lastUpdated&_offset=0&_sort=-_lastUpdated' },
-            { icon: <IconClipboardCheck />, label: 'Upload Questionnaire Response', href: '/upload/QuestionnaireResponse' },
-          ],
-        },        
-        {
-          title: 'Onboarding',
-          links: [{ icon: <IconPencil />, label: 'New Patient', href: '/onboarding' }],
-        },
+        },      
       ]}
       resourceTypeSearchDisabled={true}
       notifications={
@@ -151,6 +120,7 @@ export function App(): JSX.Element | null {
                   <Route path="" element={<ResourceDetailPage />} />
                   <Route path="edit" element={<ResourceEditPage />} />
                   <Route path="history" element={<ResourceHistoryPage />} />
+                  <Route path="preview" element={<PreviewPage />} />
                 </Route>
                 <Route path="" element={<TimelineTab />} />
               </Route>
@@ -162,6 +132,8 @@ export function App(): JSX.Element | null {
                 <Route path="" element={<ResourceDetailPage />} />
                 <Route path="edit" element={<ResourceEditPage />} />
                 <Route path="history" element={<ResourceHistoryPage />} />
+                <Route path="preview" element={<PreviewPage />} />
+
               </Route>
               <Route path="/upload/:dataType" element={<UploadDataPage />} />
 

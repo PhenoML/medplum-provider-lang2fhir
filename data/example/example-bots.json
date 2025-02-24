@@ -3,7 +3,7 @@
   "type": "transaction",
   "entry": [
     {
-      "fullUrl": "urn:uuid:8a47c24a-a916-421f-a32e-3817aa3445d9",
+      "fullUrl": "urn:uuid:4e168cbd-2850-4eba-90b3-a4fd0d788b90",
       "request": {
         "method": "POST",
         "url": "Binary"
@@ -15,7 +15,7 @@
       }
     },
     {
-      "fullUrl": "urn:uuid:e774f040-e3b7-4885-b1cf-f7703cdf1436",
+      "fullUrl": "urn:uuid:3d61a54e-0537-4202-b81c-f2d5ad3b332e",
       "request": {
         "method": "POST",
         "url": "Binary"
@@ -38,11 +38,11 @@
         "runtimeVersion": "awslambda",
         "sourceCode": {
           "contentType": "text/typescript",
-          "url": "urn:uuid:8a47c24a-a916-421f-a32e-3817aa3445d9"
+          "url": "urn:uuid:4e168cbd-2850-4eba-90b3-a4fd0d788b90"
         },
         "executableCode": {
           "contentType": "text/javascript",
-          "url": "urn:uuid:e774f040-e3b7-4885-b1cf-f7703cdf1436"
+          "url": "urn:uuid:3d61a54e-0537-4202-b81c-f2d5ad3b332e"
         }
       }
     }

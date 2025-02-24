@@ -5,7 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { showNotification } from '@mantine/notifications';
 import { Attachment, Bot, Bundle, BundleEntry, Media, Questionnaire, QuestionnaireResponse, Resource } from '@medplum/fhirtypes';
-import { IconCircleCheck, IconCircleOff, IconUpload, IconAlertCircle } from '@tabler/icons-react';
+import { IconCircleCheck, IconCircleOff, IconUpload, IconAlertCircle, IconRobot } from '@tabler/icons-react';
 import { useCallback, useState } from 'react';
 import exampleBotData from '../../data/example/example-bots.json';
 
@@ -33,17 +33,28 @@ export function UploadDataPage(): JSX.Element {
           throw new Error('Bot "lang2fhir-document" not found. Please deploy the bot first.');
         }
 
+        showNotification({
+          icon: <IconUpload />,
+          title: 'Uploading document...',
+          message: 'Creating attachment ...',
+        });
+
         const media = await medplum.createResource<Media>({
           resourceType: 'Media',
           status: 'completed',
           content: attachment,
         });
-        
+
         const botId = lang2fhirBot.id;
         if (!botId) {
           throw new Error('Bot ID is missing');
         }
 
+        showNotification({
+          icon: <IconRobot />,
+          title: 'Processing document...',
+          message: 'Extracting data from document to generate resource...',
+        });
         const resourceType = dataType;
         type resultType = Questionnaire | QuestionnaireResponse;
         const result = await medplum.executeBot(
