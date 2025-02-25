@@ -1,10 +1,10 @@
 import { Button, Container, Text, Box, LoadingOverlay, Alert } from '@mantine/core';
 import { getReferenceString, normalizeErrorString, WithId } from '@medplum/core';
-import { AttachmentButton, Document, useMedplum, useMedplumProfile } from '@medplum/react';
+import { AttachmentButton, Document, useMedplum, useMedplumProfile, ResourceBadge, ResourceInput } from '@medplum/react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { showNotification } from '@mantine/notifications';
-import { Attachment, Bot, Bundle, BundleEntry, Media, Questionnaire, QuestionnaireResponse, Resource } from '@medplum/fhirtypes';
+import { Attachment, Bot, Bundle, BundleEntry, Media, Questionnaire, QuestionnaireResponse, Resource, Patient } from '@medplum/fhirtypes';
 import { IconCircleCheck, IconCircleOff, IconUpload, IconAlertCircle, IconRobot } from '@tabler/icons-react';
 import { useCallback, useState } from 'react';
 import exampleBotData from '../../data/example/example-bots.json';
@@ -17,6 +17,7 @@ export function UploadDataPage(): JSX.Element {
   const { dataType } = useParams();
   const [pageDisabled, setPageDisabled] = useState<boolean>(false);
   const [error, setError] = useState<string>();
+  const [selectedPatient, setSelectedPatient] = useState<Patient>();
 
   const handleFileUpload = useCallback(
     async (attachment: Attachment) => {
@@ -78,6 +79,13 @@ export function UploadDataPage(): JSX.Element {
           throw new Error(`Bot execution failed: ${errorMessage}`);
         }) as resultType;
 
+        if (result.resourceType === 'QuestionnaireResponse' && selectedPatient) {
+          result.subject = {
+            reference: `Patient/${selectedPatient.id}`,
+            display: `Patient/${selectedPatient.id}`
+          };
+        }
+
         const generatedResource = await medplum.createResource<resultType>(result).catch(error => {
           const errorMessage = error instanceof Error ? error.message : normalizeErrorString(error);
           throw new Error(`Error creating ${dataType}: ${errorMessage}`);
@@ -107,7 +115,7 @@ export function UploadDataPage(): JSX.Element {
         setPageDisabled(false);
       }
     },
-    [medplum, navigate, dataType]
+    [medplum, navigate, dataType, selectedPatient]
   );
 
   const handleUploadError = useCallback((error: any) => {
@@ -195,9 +203,23 @@ export function UploadDataPage(): JSX.Element {
           </Button>
         ) : (
           <>
+            {dataType === 'QuestionnaireResponse' && (
+              <Box mb="md">
+                <ResourceInput
+                  resourceType="Patient"
+                  name="patient"
+                  placeholder="Search for patient..."
+                  onChange={(patient) => setSelectedPatient(patient as Patient)}
+                />
+                {selectedPatient && (
+                  <ResourceBadge value={selectedPatient} />
+                )}
+              </Box>
+            )}
             <AttachmentButton 
               onUpload={handleFileUpload} 
               onUploadError={handleUploadError}
+              disabled={dataType === 'QuestionnaireResponse' && !selectedPatient}
             >
               {(props) => (
                 <Button fullWidth {...props}>
