@@ -157,6 +157,10 @@ async function processDocument(
         reference: `Patient/${selectedPatient.id}`,
         display: `Patient/${selectedPatient.id}`
       };
+      result.source = {
+        reference: `Patient/${selectedPatient.id}`,
+        display: `Patient/${selectedPatient.id}`
+      };
     }
     if (selectedQuestionnaire) {
       result.questionnaire = `Questionnaire/${selectedQuestionnaire.id}`;
