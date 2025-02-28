@@ -3,7 +3,7 @@ import { normalizeErrorString, MedplumClient } from '@medplum/core';
 import { AttachmentButton, Document, useMedplum, useMedplumProfile, ResourceBadge, ResourceInput } from '@medplum/react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { showNotification } from '@mantine/notifications';
-import { Attachment, Bot, Bundle, Media, Questionnaire, QuestionnaireResponse, Resource, Patient, OperationOutcome } from '@medplum/fhirtypes';
+import { Attachment, Bot, Bundle, Questionnaire, QuestionnaireResponse, Resource, Patient, OperationOutcome, DocumentReference } from '@medplum/fhirtypes';
 import { IconCircleCheck, IconCircleOff, IconUpload, IconAlertCircle, IconRobot } from '@tabler/icons-react';
 import { useCallback, useState } from 'react';
 import exampleBotData from '../../data/example/example-bots.json';
@@ -137,20 +137,30 @@ async function processDocument(
     throw new Error('Bot "lang2fhir-document" not found or invalid');
   }
 
-  // Create media resource
-  const media = await medplum.createResource<Media>({
-    resourceType: 'Media',
-    status: 'completed',
-    content: attachment,
+  // Create document reference resource
+  const docref = await medplum.createResource<DocumentReference>({
+    resourceType: 'DocumentReference',
+    status: 'current',
+    content: [{
+      attachment: attachment,
+    }],
   });
 
   // Process document
   const result = await medplum.executeBot(
     lang2fhirBot.id,
-    { media, resourceType }
+    { docref, resourceType }
   ) as QuestionnaireResponse | Questionnaire;
 
-  // Add references if QuestionnaireResponse
+  // Add Media reference as extension
+  result.extension = [{
+    url: 'https://example.org/fhir/StructureDefinition/source-document',
+    valueReference: {
+      reference: `DocumentReference/${docref.id}`,
+      display: 'Source Document'
+    }
+  }];
+
   if (result.resourceType === 'QuestionnaireResponse') {
     if (selectedPatient) {
       result.subject = {

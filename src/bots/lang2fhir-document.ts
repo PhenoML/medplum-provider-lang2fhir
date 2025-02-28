@@ -1,5 +1,5 @@
 import { BotEvent, MedplumClient } from '@medplum/core';
-import { Media, Resource, Questionnaire, QuestionnaireResponse } from '@medplum/fhirtypes';
+import { DocumentReference, Resource, Questionnaire, QuestionnaireResponse } from '@medplum/fhirtypes';
 import { Buffer } from 'buffer';
 
 /**
@@ -34,7 +34,7 @@ interface DocumentRequest {
 }
 
 interface DocBotInput {
-  media: Media;
+  docref: DocumentReference;
   resourceType: 'Questionnaire' | 'QuestionnaireResponse';
 }
 
@@ -48,10 +48,10 @@ export async function handler(
   try {
     console.log('Starting bot execution with event:', JSON.stringify(event, null, 2));
 
-    const inputMedia = event.input.media;
+    const inputDocRef = event.input.docref;
     const inputResourceType = event.input.resourceType;
     
-    if (!inputMedia) {
+    if (!inputDocRef) {
       throw new Error('No media input provided to bot');
     }
     if (!inputResourceType) {
@@ -62,17 +62,17 @@ export async function handler(
       throw new Error(`Unsupported resource type: ${inputResourceType}`);
     }
 
-    console.log('Processing Media resource:', JSON.stringify(inputMedia, null, 2));
+    console.log('Processing DocumentReference resource:', JSON.stringify(inputDocRef, null, 2));
     
-    if (!inputMedia.content?.url) {
-      throw new Error('Media resource must have content.url');
+    if (!inputDocRef.content?.[0].attachment?.url) {
+      throw new Error('DocumentReference resource must have content.url');
     }
 
     const targetResourceType = inputResourceType.toLowerCase();
 
     // Download the file content from the pre-signed URL
-    console.log('Downloading file from:', inputMedia.content.url);
-    const blob = await medplum.download(inputMedia.content.url);
+    console.log('Downloading file from:', inputDocRef.content?.[0].attachment?.url);
+    const blob = await medplum.download(inputDocRef.content?.[0].attachment?.url);
     const arrayBuffer = await blob.arrayBuffer();
     const content = Buffer.from(arrayBuffer).toString('base64');
 
@@ -116,7 +116,7 @@ export async function handler(
       version: 'R4', // FHIR R4
       resource: targetResourceType,
       content: content,
-      fileType: inputMedia.content.contentType || 'application/pdf'
+      fileType: inputDocRef.content?.[0].attachment?.contentType || 'application/pdf'
     };
 
     // Call lang2fhir/document endpoint

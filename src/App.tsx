@@ -31,11 +31,12 @@ import { TimelineTab } from './pages/patient/TimelineTab';
 import { ResourceDetailPage } from './pages/resource/ResourceDetailPage';
 import { ResourceEditPage } from './pages/resource/ResourceEditPage';
 import { ResourceHistoryPage } from './pages/resource/ResourceHistoryPage';
-import { PreviewPage } from './pages/resource/PreviewPage';
+import { QuestionnairePreviewPage } from './pages/resource/QuestionnairePreviewPage';
 import { ResourcePage } from './pages/resource/ResourcePage';
 import { CommunicationTab } from './pages/patient/CommunicationTab';
 import { TaskTab } from './pages/patient/TaskTab';
 import { UploadDataPage } from './pages/UploadDataPage';
+import { SourceDocumentPage } from './pages/resource/SourceDocumentPage';
 
 
 export function App(): JSX.Element | null {
@@ -120,7 +121,8 @@ export function App(): JSX.Element | null {
                   <Route path="" element={<ResourceDetailPage />} />
                   <Route path="edit" element={<ResourceEditPage />} />
                   <Route path="history" element={<ResourceHistoryPage />} />
-                  <Route path="preview" element={<PreviewPage />} />
+                  <Route path="preview" element={<QuestionnairePreviewPage />} />
+                  <Route path="source" element={<SourceDocumentPage />} />
                 </Route>
                 <Route path="" element={<TimelineTab />} />
               </Route>
@@ -132,8 +134,8 @@ export function App(): JSX.Element | null {
                 <Route path="" element={<ResourceDetailPage />} />
                 <Route path="edit" element={<ResourceEditPage />} />
                 <Route path="history" element={<ResourceHistoryPage />} />
-                <Route path="preview" element={<PreviewPage />} />
-
+                <Route path="preview" element={<QuestionnairePreviewPage />} />
+                <Route path="source" element={<SourceDocumentPage />} />
               </Route>
               <Route path="/upload/:dataType" element={<UploadDataPage />} />
 

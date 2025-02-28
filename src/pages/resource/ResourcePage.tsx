@@ -12,6 +12,7 @@ const tabs = [
   { id: 'edit', url: 'edit', label: 'Edit' },
   { id: 'history', url: 'history', label: 'History' },
   { id: 'preview', url: 'preview', label: 'Preview' },
+  { id: 'source', url: 'source', label: 'Source' },
 ];
 
 export function ResourcePage(): JSX.Element | null {
@@ -55,6 +56,9 @@ export function ResourcePage(): JSX.Element | null {
   const visibleTabs = tabs.filter(tab => {
     if (tab.id === 'preview') {
       return resourceType === 'Questionnaire';
+    }
+    if (tab.id === 'source') {
+      return resourceType === 'Questionnaire' || resourceType === 'QuestionnaireResponse';
     }
     return true;
   });
