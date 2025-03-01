@@ -37,6 +37,7 @@ import { CommunicationTab } from './pages/patient/CommunicationTab';
 import { TaskTab } from './pages/patient/TaskTab';
 import { UploadDataPage } from './pages/UploadDataPage';
 import { SourceDocumentPage } from './pages/resource/SourceDocumentPage';
+import { ResourceLang2FHIRCreatePage } from './pages/resource/ResourceLang2FHIRCreatePage';
 
 
 export function App(): JSX.Element | null {
@@ -67,7 +68,6 @@ export function App(): JSX.Element | null {
           links: [
             { icon: <IconClipboardText />, label: 'Upload Questionnaire', href: '/upload/Questionnaire' },
             { icon: <IconForms />, label: 'Upload Questionnaire Response', href: '/upload/QuestionnaireResponse' },
-
           ],
         },      
       ]}
@@ -117,6 +117,7 @@ export function App(): JSX.Element | null {
                 <Route path="timeline" element={<TimelineTab />} />
                 <Route path=":resourceType" element={<PatientSearchPage />} />
                 <Route path=":resourceType/new" element={<ResourceCreatePage />} />
+                <Route path=":resourceType/new/lang2fhir" element={<ResourceLang2FHIRCreatePage />} />
                 <Route path=":resourceType/:id" element={<ResourcePage />}>
                   <Route path="" element={<ResourceDetailPage />} />
                   <Route path="edit" element={<ResourceEditPage />} />

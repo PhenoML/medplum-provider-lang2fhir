@@ -13,6 +13,10 @@ const Bots: BotDescription[] = [
   {
     src: 'src/bots/lang2fhir-document.ts',
     dist: 'dist/lang2fhir-document.js',
+  },
+  {
+    src: 'src/bots/lang2fhir-create.ts',
+    dist: 'dist/lang2fhir-create.js',
   }
 ];
 

@@ -1,9 +1,9 @@
 import { Button, Container, Text, Box, LoadingOverlay, Alert } from '@mantine/core';
-import { normalizeErrorString, MedplumClient } from '@medplum/core';
+import { normalizeErrorString, MedplumClient, getReferenceString, WithId } from '@medplum/core';
 import { AttachmentButton, Document, useMedplum, useMedplumProfile, ResourceBadge, ResourceInput } from '@medplum/react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { showNotification } from '@mantine/notifications';
-import { Attachment, Bot, Bundle, Questionnaire, QuestionnaireResponse, Resource, Patient, OperationOutcome, DocumentReference } from '@medplum/fhirtypes';
+import { Attachment, Bot, Bundle, Questionnaire, QuestionnaireResponse, Resource, Patient, OperationOutcome, DocumentReference,  BundleEntry } from '@medplum/fhirtypes';
 import { IconCircleCheck, IconCircleOff, IconUpload, IconAlertCircle, IconRobot } from '@tabler/icons-react';
 import { useCallback, useState } from 'react';
 import exampleBotData from '../../data/example/example-bots.json';
@@ -52,7 +52,7 @@ export function UploadDataPage(): JSX.Element {
     
     setPageDisabled(true);
     try {
-      await deployBots(medplum, profile.meta.project);
+      await deployBots(medplum, profile.meta?.project as string);
       showSuccessNotification('Deployed Example Bots');
     } catch (error) {
       setError(normalizeErrorString(error));
@@ -132,8 +132,8 @@ async function processDocument(
   selectedQuestionnaire?: Questionnaire
 ): Promise<Resource> {
   // Find bot
-  const lang2fhirBot = await medplum.searchOne('Bot', { name: 'lang2fhir-document' });
-  if (!lang2fhirBot?.id) {
+  const lang2fhirDocumentBot = await medplum.searchOne('Bot', { name: 'lang2fhir-document' });
+  if (!lang2fhirDocumentBot?.id) {
     throw new Error('Bot "lang2fhir-document" not found or invalid');
   }
 
@@ -148,7 +148,7 @@ async function processDocument(
 
   // Process document
   const result = await medplum.executeBot(
-    lang2fhirBot.id,
+    lang2fhirDocumentBot.id,
     { docref, resourceType }
   ) as QuestionnaireResponse | Questionnaire;
 
@@ -181,34 +181,50 @@ async function processDocument(
   return resource;
 }
 
-// Bot deployment function
+
 async function deployBots(medplum: MedplumClient, projectId: string): Promise<void> {
-  const botEntries = (exampleBotData as Bundle).entry?.filter(
-    e => (e.resource as Resource)?.resourceType === 'Bot'
-  ) || [];
 
-  for (const entry of botEntries) {
-    const bot = entry.resource as Bot;
-    if (!bot.name) {
-      continue;
-    }
+  let transactionString = JSON.stringify(exampleBotData);
+  const botEntries: BundleEntry[] =
+    (exampleBotData as Bundle).entry?.filter((e) => e.resource?.resourceType === 'Bot') || [];
+  const botNames = botEntries.map((e) => (e.resource as Bot).name ?? '');
+  const botIds: Record<string, string> = {};
 
-    // Create or get existing bot
-    let existingBot = await medplum.searchOne('Bot', { name: bot.name }) as Bot;
+  for (const botName of botNames) {
+    let existingBot = await medplum.searchOne('Bot', { name: botName });
+    // Create a new Bot if it doesn't already exist
     if (!existingBot) {
-      const createBotUrl = new URL(`admin/projects/${projectId}/bot`, medplum.getBaseUrl());
-      existingBot = await medplum.post(createBotUrl, { name: bot.name });
+      const createBotUrl = new URL('admin/projects/' + (projectId as string) + '/bot', medplum.getBaseUrl());
+      existingBot = (await medplum.post(createBotUrl, {
+        name: botName,
+      })) as WithId<Bot>;
     }
 
-    // Deploy bot code
-    const distUrl = bot.executableCode?.url;
-    const distBinaryEntry = exampleBotData.entry.find(e => e.fullUrl === distUrl);
-    if (distBinaryEntry?.resource?.data) {
-      const code = atob(distBinaryEntry.resource.data);
-      await medplum.post(medplum.fhirUrl('Bot', existingBot.id as string, '$deploy'), { code });
-    }
+    botIds[botName] = existingBot.id as string;
+
+    // Replace the Bot id placeholder in the bundle
+    transactionString = transactionString
+      .replaceAll(`$bot-${botName}-reference`, getReferenceString(existingBot))
+      .replaceAll(`$bot-${botName}-id`, existingBot.id as string);
   }
+
+
+  // Execute the transaction to upload / update the bot
+  const transaction = JSON.parse(transactionString);
+  await medplum.executeBatch(transaction);
+
+  // Deploy the new bots
+  for (const entry of botEntries) {
+    const botName = (entry?.resource as Bot)?.name as string;
+    const distUrl = (entry.resource as Bot).executableCode?.url;
+    const distBinaryEntry = exampleBotData.entry.find((e) => e.fullUrl === distUrl);
+    // Decode the base64 encoded code and deploy
+    const code = atob(distBinaryEntry?.resource.data as string);
+    await medplum.post(medplum.fhirUrl('Bot', botIds[botName], '$deploy'), { code });
+  }
+
 }
+
 
 // Helper notification functions
 const showUploadNotification = (): void => {
