@@ -17,6 +17,10 @@ const Bots: BotDescription[] = [
   {
     src: 'src/bots/lang2fhir-create.ts',
     dist: 'dist/lang2fhir-create.js',
+  },
+  {
+    src: 'src/bots/phenoml-cohort.ts',
+    dist: 'dist/phenoml-cohort.js',
   }
 ];
 

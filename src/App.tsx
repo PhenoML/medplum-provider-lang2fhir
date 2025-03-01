@@ -15,6 +15,7 @@ import {
   IconMail,
   IconRobot,
   IconUser,
+  IconUsersGroup,
 } from '@tabler/icons-react';
 import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
@@ -38,6 +39,7 @@ import { TaskTab } from './pages/patient/TaskTab';
 import { UploadDataPage } from './pages/UploadDataPage';
 import { SourceDocumentPage } from './pages/resource/SourceDocumentPage';
 import { ResourceLang2FHIRCreatePage } from './pages/resource/ResourceLang2FHIRCreatePage';
+import { CreateCohortPage } from './pages/resource/CreateCohortPage';
 
 
 export function App(): JSX.Element | null {
@@ -69,7 +71,13 @@ export function App(): JSX.Element | null {
             { icon: <IconClipboardText />, label: 'Upload Questionnaire', href: '/upload/Questionnaire' },
             { icon: <IconForms />, label: 'Upload Questionnaire Response', href: '/upload/QuestionnaireResponse' },
           ],
-        },      
+        },   
+        {
+          title: 'Create Cohort',
+          links: [
+            { icon: <IconUsersGroup />, label: 'Create Cohort', href: '/create-cohort' },
+          ],
+        },     
       ]}
       resourceTypeSearchDisabled={true}
       notifications={
@@ -139,6 +147,8 @@ export function App(): JSX.Element | null {
                 <Route path="source" element={<SourceDocumentPage />} />
               </Route>
               <Route path="/upload/:dataType" element={<UploadDataPage />} />
+              <Route path="create-cohort" element={<CreateCohortPage />} />
+
 
             </>
           ) : (
