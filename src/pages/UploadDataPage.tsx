@@ -212,29 +212,23 @@ async function deployBots(medplum: MedplumClient, projectId: string): Promise<vo
 
     botIds[botName] = existingBot.id as string;
 
-    // Replace the Bot id placeholder in the bundle
     transactionString = transactionString
       .replaceAll(`$bot-${botName}-reference`, getReferenceString(existingBot))
       .replaceAll(`$bot-${botName}-id`, existingBot.id as string);
   }
 
-
-  // Execute the transaction to upload / update the bot
   const transaction = JSON.parse(transactionString);
   await medplum.executeBatch(transaction);
 
-  // Deploy the new bots
   for (const entry of botEntries) {
     const botName = (entry?.resource as Bot)?.name as string;
     const distUrl = (entry.resource as Bot).executableCode?.url;
     const distBinaryEntry = exampleBotData.entry.find((e) => e.fullUrl === distUrl);
-    // Decode the base64 encoded code and deploy
     const code = atob(distBinaryEntry?.resource.data as string);
     await medplum.post(medplum.fhirUrl('Bot', botIds[botName], '$deploy'), { code });
   }
 
 }
-
 
 // Helper notification functions
 const showUploadNotification = (): void => {

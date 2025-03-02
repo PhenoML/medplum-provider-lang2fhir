@@ -42,7 +42,7 @@ function getDefaultValue(resourceType: ResourceType, patient: Patient | undefine
   return dv;
 }
 
-// Define supported resource types
+// Define supported resource types for demo purposes
 const LANG2FHIR_SUPPORTED_TYPES = [
   'QuestionnaireResponse',
   'Observation',

@@ -61,7 +61,7 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
       setOutcome(undefined);
     }
     
-    // Stop recording if active
+    // Stop recording if submitting
     if (listening) {
       await stopListening();
     }
@@ -80,7 +80,7 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
         patient: patient,
       }) as Resource;
 
-      // Then create the resource in Medplum
+      // Then create the resource 
       const createdResource = await medplum.createResource(generatedResource);
       
       // Navigate to the newly created resource

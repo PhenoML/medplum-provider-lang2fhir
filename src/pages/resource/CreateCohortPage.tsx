@@ -22,7 +22,6 @@ export function CreateCohortPage(): JSX.Element {
     
     setLoading(true);
     try {
-      // First, get the generated resource from the bot
       const phenomlCohortBot = await medplum.searchOne('Bot', { name: 'phenoml-cohort' });
       if (!phenomlCohortBot?.id) {
         throw new Error('Bot "phenoml-cohort" not found or invalid');
@@ -36,8 +35,6 @@ export function CreateCohortPage(): JSX.Element {
       const generatedResource = await medplum.executeBot(phenomlCohortBot.id, {
         text: inputText,
       }) as Resource;
-
-      // Then create the resource in Medplum
 
       const createdResource = await medplum.createResource(generatedResource);
       showNotification({
