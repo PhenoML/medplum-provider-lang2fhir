@@ -5,7 +5,7 @@ import { OperationOutcome, Patient, Resource, ResourceType } from '@medplum/fhir
 import { Document, Loading, useMedplum } from '@medplum/react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { IconBrain } from '@tabler/icons-react';
+import { IconSparkles } from '@tabler/icons-react';
 import { usePatient } from '../../hooks/usePatient';
 import { prependPatientPath } from '../patient/PatientPage.utils';
 import { ResourceFormWithRequiredProfile } from '../../components/ResourceFormWithRequiredProfile';
@@ -112,7 +112,7 @@ export function ResourceCreatePage(): JSX.Element {
           {isLang2FHIRSupported(resourceType) && (
             <Button 
               variant="light" 
-              leftSection={<IconBrain size={16} />}
+              leftSection={<IconSparkles size={16} />}
               onClick={handleLang2FHIRClick}
             >
               Create with Natural Language

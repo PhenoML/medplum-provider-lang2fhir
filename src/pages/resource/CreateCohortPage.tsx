@@ -1,11 +1,12 @@
-import { Stack, Text, Textarea, Button } from '@mantine/core';
+import { Stack, Text, Textarea, Button, Box, Space } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeErrorString, normalizeOperationOutcome } from '@medplum/core';
 import { OperationOutcome, Resource } from '@medplum/fhirtypes';
 import { Document, OperationOutcomeAlert, useMedplum } from '@medplum/react';
-import { IconCircleCheck, IconRobot } from '@tabler/icons-react';
+import { IconCircleCheck, IconRobot, IconSparkles } from '@tabler/icons-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PhenoMLBranding } from '../../components/PhenoMLBranding';
 
 export function CreateCohortPage(): JSX.Element {
   const medplum = useMedplum();
@@ -76,9 +77,15 @@ export function CreateCohortPage(): JSX.Element {
           loading={loading}
           disabled={!inputText.trim()}
         >
+          <IconSparkles size={14} style={{ marginRight: 8 }} />
           Create Cohort
         </Button>
         {outcome && <OperationOutcomeAlert outcome={outcome} />}
+
+        <Space h="xl" />
+        <Box ta="center">
+          <PhenoMLBranding />
+        </Box>
       </Stack>
     </Document>
   );

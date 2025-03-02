@@ -1,4 +1,4 @@
-import { Button, Container, Text, Box, LoadingOverlay, Alert } from '@mantine/core';
+import { Button, Container, Text, Box, LoadingOverlay, Alert, Space } from '@mantine/core';
 import { normalizeErrorString, MedplumClient, getReferenceString, WithId } from '@medplum/core';
 import { AttachmentButton, Document, useMedplum, useMedplumProfile, ResourceBadge, ResourceInput } from '@medplum/react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -7,6 +7,7 @@ import { Attachment, Bot, Bundle, Questionnaire, QuestionnaireResponse, Resource
 import { IconCircleCheck, IconCircleOff, IconUpload, IconAlertCircle, IconRobot } from '@tabler/icons-react';
 import { useCallback, useState } from 'react';
 import exampleBotData from '../../data/example/example-bots.json';
+import { PhenoMLBranding } from '../components/PhenoMLBranding';
 
 
 export function UploadDataPage(): JSX.Element {
@@ -68,7 +69,7 @@ export function UploadDataPage(): JSX.Element {
       <Container size="sm">
         <Box ta="center" mb="md">
           <Text size="lg">
-            {dataType === 'bot' ? 'Deploy Lang2FHIR Bot' : `Upload ${dataType}`}
+            {dataType === 'bot' ? 'Deploy Bots' : `Upload ${dataType}`}
           </Text>
         </Box>
         {error && (
@@ -78,7 +79,8 @@ export function UploadDataPage(): JSX.Element {
         )}
         {dataType === 'bot' ? (
           <Button fullWidth onClick={handleBotUpload}>
-            Deploy Bot
+            <IconRobot size={14} style={{ marginRight: 8 }} />
+            Deploy Bots
           </Button>
         ) : (
           <>
@@ -116,6 +118,14 @@ export function UploadDataPage(): JSX.Element {
                 </Button>
               )}
             </AttachmentButton>
+          </>
+        )}
+        {(dataType === 'QuestionnaireResponse' || dataType === 'Questionnaire') && (
+          <>
+            <Space h="xl" />
+            <Box ta="center">
+              <PhenoMLBranding />
+            </Box>
           </>
         )}
       </Container>

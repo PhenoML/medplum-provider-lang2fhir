@@ -1,4 +1,4 @@
-import { Stack, Text, Textarea, Button } from '@mantine/core';
+import { Stack, Text, Textarea, Button, Box, Space } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeErrorString, normalizeOperationOutcome } from '@medplum/core';
 import { OperationOutcome, Resource, ResourceType } from '@medplum/fhirtypes';
@@ -7,6 +7,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePatient } from '../../hooks/usePatient';
 import { prependPatientPath } from '../patient/PatientPage.utils';
+import { PhenoMLBranding } from '../../components/PhenoMLBranding';
+import { IconSparkles } from '@tabler/icons-react';
 
 export function ResourceLang2FHIRCreatePage(): JSX.Element {
   const medplum = useMedplum();
@@ -68,10 +70,10 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
   return (
     <Document shadow="xs">
       <Stack>
-        <Text fw={500}>New {resourceType} using Natural Language</Text>
+        <Text fw={500}>Create a new {resourceType} using Natural Language</Text>
         <Textarea
           label="Enter your description"
-          placeholder={`Describe the ${resourceType.toLowerCase()} in natural language...`}
+          placeholder={`Describe the ${resourceType} in natural language...`}
           minRows={4}
           value={inputText}
           onChange={(e) => setInputText(e.currentTarget.value)}
@@ -81,9 +83,14 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
           loading={loading}
           disabled={!inputText.trim()}
         >
+          <IconSparkles size={14} style={{ marginRight: 8 }} />
           Create {resourceType}
         </Button>
         {outcome && <OperationOutcomeAlert outcome={outcome} />}
+        <Space h="xl" />
+        <Box ta="center">
+          <PhenoMLBranding />
+        </Box>
       </Stack>
     </Document>
   );
