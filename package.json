@@ -45,13 +45,11 @@
     "react-dom": "18.2.0",
     "react-router-dom": "6.28.0",
     "react-speech-recognition": "^3.10.0",
+    "@types/react-speech-recognition": "^3.9.6",
     "rimraf": "5.0.9",
     "ts-node": "10.9.2",
     "typescript": "5.7.3",
     "vite": "6.1.0",
     "vitest": "^2.1.9"
-  },
-  "dependencies": {
-    "@types/react-speech-recognition": "^3.9.6"
   }
 }

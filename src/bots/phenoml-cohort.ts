@@ -53,7 +53,6 @@ export async function handler(medplum: MedplumClient, event: BotEvent<CohortBotI
 // Authenticates and submits request to PhenoML API.
 async function submitCohortRequest(cohortRequestText: any, credentials:string): Promise<CohortOutput> {
   
-  console.log('Authentication with PhenoML API...');
   // Get auth token using Basic Auth
   const authResponse = await fetch(PHENOML_API_URL + '/auth/token', {
     method: 'POST',
@@ -65,22 +64,14 @@ async function submitCohortRequest(cohortRequestText: any, credentials:string): 
     throw new Error(`Failed to connect to PhenoML API: ${error.message}`);
   }); 
   
-  console.log('Auth response status:', authResponse.status);
   if (!authResponse.ok) {
-    const errorText = await authResponse.text().catch(() => 'No error details available');
-    throw new Error(`Authentication failed: ${authResponse.status} ${authResponse.statusText} - ${errorText}`);
+    throw new Error(`Authentication failed: ${authResponse.status} ${authResponse.statusText}`);
   }
 
-  const authData = await authResponse.json().catch(error => {
-    throw new Error(`Failed to parse authentication response: ${error.message}`);
-  }) as { token: string };
-  
-  const bearerToken = authData.token as string;
+  const { token: bearerToken } = await authResponse.json() as { token: string };
   if (!bearerToken) {
     throw new Error('No token received from auth response');
   }
-
-  console.log('Successfully authenticated with PhenoML API');
   
   const cohortResponse = await fetch(PHENOML_API_URL + '/construe/cohort', {
     method: "POST",

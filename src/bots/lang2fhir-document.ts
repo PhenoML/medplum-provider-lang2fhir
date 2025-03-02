@@ -46,7 +46,6 @@ export async function handler(
   event: BotEvent<DocBotInput>
 ): Promise<Resource> {
   try {
-    console.log('Starting bot execution with event:', JSON.stringify(event, null, 2));
 
     const inputDocRef = event.input.docref;
     const inputResourceType = event.input.resourceType;
@@ -61,8 +60,6 @@ export async function handler(
     if (!['Questionnaire', 'QuestionnaireResponse'].includes(inputResourceType)) {
       throw new Error(`Unsupported resource type: ${inputResourceType}`);
     }
-
-    console.log('Processing DocumentReference resource:', JSON.stringify(inputDocRef, null, 2));
     
     if (!inputDocRef.content?.[0].attachment?.url) {
       throw new Error('DocumentReference resource must have content.url');
@@ -71,7 +68,6 @@ export async function handler(
     const targetResourceType = inputResourceType.toLowerCase();
 
     // Download the file content from the pre-signed URL
-    console.log('Downloading file from:', inputDocRef.content?.[0].attachment?.url);
     const blob = await medplum.download(inputDocRef.content?.[0].attachment?.url);
     const arrayBuffer = await blob.arrayBuffer();
     const content = Buffer.from(arrayBuffer).toString('base64');
@@ -81,8 +77,6 @@ export async function handler(
 
     // Create base64 encoded credentials for Basic Auth
     const credentials = Buffer.from(`${email}:${password}`).toString('base64');
-
-    console.log('Authentication with PhenoML API...');
     // Get auth token using Basic Auth
     const authResponse = await fetch(PHENOML_API_URL + '/auth/token', {
       method: 'POST',
@@ -94,22 +88,14 @@ export async function handler(
       throw new Error(`Failed to connect to PhenoML API: ${error.message}`);
     }); 
     
-    console.log('Auth response status:', authResponse.status);
     if (!authResponse.ok) {
-      const errorText = await authResponse.text().catch(() => 'No error details available');
-      throw new Error(`Authentication failed: ${authResponse.status} ${authResponse.statusText} - ${errorText}`);
+      throw new Error(`Authentication failed: ${authResponse.status} ${authResponse.statusText}`);
     }
 
-    const authData = await authResponse.json().catch(error => {
-      throw new Error(`Failed to parse authentication response: ${error.message}`);
-    }) as { token: string };
-    
-    const bearerToken = authData.token as string;
+    const { token: bearerToken } = await authResponse.json() as { token: string };
     if (!bearerToken) {
       throw new Error('No token received from auth response');
     }
-
-    console.log('Successfully authenticated with PhenoML API');
     
     // Prepare document request
     const documentRequest: DocumentRequest = {
@@ -129,10 +115,9 @@ export async function handler(
         'Accept': 'application/json'
       },
     }).catch(error => {
-      throw new Error(`Failed to connect to PhenoML document API: ${error.message}`);
+      throw new Error(`Failed to connect to Lang2FHIR Document API: ${error.message}`);
     });
 
-    console.log('Document API response status:', documentResponse.status);
     if (!documentResponse.ok) {
       const errorText = await documentResponse.text().catch(() => 'No error details available');
       throw new Error(`Document processing failed: ${documentResponse.status} ${documentResponse.statusText} - ${errorText}`);
@@ -142,10 +127,8 @@ export async function handler(
       throw new Error(`Failed to parse document response: ${error.message}`);
     });
 
-    console.log('Successfully processed document. Response:', JSON.stringify(generatedResource, null, 2));
-    return generatedResource as Questionnaire | QuestionnaireResponse; // 
+    return generatedResource as Questionnaire | QuestionnaireResponse; 
   } catch (error) {
-    // Re-throw the error with all context preserved
     throw new Error(`Bot execution failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

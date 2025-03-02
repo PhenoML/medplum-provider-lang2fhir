@@ -1,4 +1,3 @@
-import 'regenerator-runtime/runtime';
 import { MantineProvider, createTheme } from '@mantine/core';
 import '@mantine/core/styles.css';
 import { MedplumClient } from '@medplum/core';
