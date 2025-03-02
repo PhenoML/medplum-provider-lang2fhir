@@ -4,17 +4,21 @@ import { showNotification } from '@mantine/notifications';
 import { normalizeErrorString, normalizeOperationOutcome } from '@medplum/core';
 import { OperationOutcome, Resource, ResourceType } from '@medplum/fhirtypes';
 import { Document, Loading, OperationOutcomeAlert, useMedplum } from '@medplum/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePatient } from '../../hooks/usePatient';
 import { prependPatientPath } from '../patient/PatientPage.utils';
 import { PhenoMLBranding } from '../../components/PhenoMLBranding';
 import { IconSparkles, IconMicrophone, IconMicrophoneOff } from '@tabler/icons-react';
-import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import { env, pipeline } from '@huggingface/transformers';
+
 
 // Define which resource types don't require a patient
 const PATIENT_INDEPENDENT_RESOURCES = ['PlanDefinition', 'Questionnaire'] as const;
 type PatientIndependentResource = typeof PATIENT_INDEPENDENT_RESOURCES[number];
+
+env.allowLocalModels = false;
+env.useBrowserCache = true;
 
 export function ResourceLang2FHIRCreatePage(): JSX.Element {
   const medplum = useMedplum();
@@ -23,6 +27,14 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
   const navigate = useNavigate();
   const { patientId, resourceType } = useParams() as { patientId: string | undefined; resourceType: ResourceType };
   const [loading, setLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isModelLoading, setIsModelLoading] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const whisperRef = useRef<any>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
 
   // Only fetch patient if the resource type requires it AND we have a patientId
   const requiresPatient = !PATIENT_INDEPENDENT_RESOURCES.includes(resourceType as PatientIndependentResource);
@@ -32,52 +44,130 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
   });
   const [loadingPatient, setLoadingPatient] = useState(Boolean(patientId && requiresPatient));
 
-  const {
-    listening,
-    browserSupportsSpeechRecognition,
-    isMicrophoneAvailable,
-    finalTranscript,
-    interimTranscript,
-    resetTranscript
-  } = useSpeechRecognition({
-    clearTranscriptOnListen: false
-  });
-
   useEffect(() => {
     if (patient) {
       setLoadingPatient(false);
     }
   }, [patient]);
 
+  // Initialize Whisper model
   useEffect(() => {
-  }, [listening, isMicrophoneAvailable, interimTranscript, finalTranscript]);
+    initWhisper().catch(console.error);
+  }, []);
 
-  useEffect(() => {
-    if (finalTranscript) {
-      setInputText((prev) => {
-        const space = prev.endsWith(' ') ? '' : ' ';
-        const newText = prev + space + finalTranscript;
+
+  const initWhisper = async (): Promise<void> => {
+    try {
+      setIsModelLoading(true);
+      whisperRef.current = await pipeline(
+        'automatic-speech-recognition',
+        'Xenova/whisper-tiny.en'
+      );
+      console.log('Whisper initialized');
+    } catch (error) {
+      console.error('Failed to initialize Whisper:', error);
+    } finally {
+      setIsModelLoading(false);
+    }
+  };
+
+  // Start recording
+  const startRecording = async (): Promise<void> => {
+    if (!whisperRef.current) {
+      await initWhisper();
+    }
+
+    try {
+      chunksRef.current = [];
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream; // Store stream for cleanup
+      const mediaRecorder = new MediaRecorder(stream);
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunksRef.current.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(chunksRef.current, { type: 'audio/wav' });
+        transcribeAudio(audioBlob).catch(console.error);
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start(1000); // Collect data every second
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Error starting recording:', error);
+    }
+  };
+
+  // Stop recording
+  // Stop recording
+  const stopRecording = (): void => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+    
+    // Stop all tracks in the stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  };
+
+  // Transcribe audio
+  const transcribeAudio = async (audioBlob: Blob): Promise<void> => {
+    let audioContext: AudioContext | undefined;
+    
+    try {
+      setIsProcessing(true);
+      
+      // Convert Blob to ArrayBuffer
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      
+      // Create AudioContext and decode audio
+      audioContext = new AudioContext({ sampleRate: 16000 });
+      const audioData = await audioContext.decodeAudioData(arrayBuffer);
+      
+      // Get audio data as Float32Array
+      const audioArray = audioData.getChannelData(0);
+      
+      // Log the audio data to verify it's a Float32Array
+      console.log('Audio data type:', audioArray.constructor.name);
+      console.log('Audio data length:', audioArray.length);
+      console.log('Is Float32Array?', audioArray instanceof Float32Array);
+      
+      // Pass the Float32Array directly to Whisper
+      const result = await whisperRef.current(audioArray);
+      
+      console.log('Transcription result:', result);
+      
+      setInputText(prev => {
+        const newText = prev + (prev.length > 0 ? ' ' : '') + result.text;
+        console.log('Updated text will be:', newText);
         return newText;
       });
-      resetTranscript();
+    } catch (error) {
+      console.error('Transcription error:', error);
+    } finally {
+      setIsProcessing(false);
+      await audioContext?.close();
     }
-  }, [finalTranscript, resetTranscript]);
-
-  useEffect(() => {
-    console.log('Speech recognition supported:', browserSupportsSpeechRecognition);
-  }, [browserSupportsSpeechRecognition]);
+  };
 
   const handleSubmit = async (): Promise<void> => {
-    if (outcome) {
-      setOutcome(undefined);
-    }
-    
-    if (listening) {
-      await stopListening();
-    }
-    
-    setLoading(true);
     try {
+      if (outcome) {
+        setOutcome(undefined);
+      }
+      
+      if (isRecording) {
+        stopRecording();
+      }
+      
+      setLoading(true);
       const lang2fhirCreateBot = await medplum.searchOne('Bot', { name: 'lang2fhir-create' });
       if (!lang2fhirCreateBot?.id) {
         throw new Error('Bot "lang2fhir-create" not found or invalid');
@@ -103,11 +193,11 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
         : `/${createdResource.resourceType}/${createdResource.id}`;
       
       navigate(navigationPath);
-    } catch (err) {
-      setOutcome(normalizeOperationOutcome(err));
+    } catch (error) {
+      setOutcome(normalizeOperationOutcome(error));
       showNotification({
         color: 'red',
-        message: normalizeErrorString(err),
+        message: normalizeErrorString(error),
         autoClose: false,
         styles: { description: { whiteSpace: 'pre-line' } },
       });
@@ -116,108 +206,47 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
     }
   };
 
-  const startListening = async (): Promise<void> => {
-    try {
-      await SpeechRecognition.startListening({ 
-        continuous: true,
-        language: 'en-US',
-        interimResults: true
-      });
-    } catch (error) {
-      showNotification({
-        color: 'red',
-        message: 'Failed to start speech recognition',
-        autoClose: 3000
-      });
-      console.error('Speech recognition error:', error);
-    }
-  };
-
-  const stopListening = async (): Promise<void> => {
-    await SpeechRecognition.stopListening();
-  };
-
-  const toggleListening = async (): Promise<void> => {
-    if (!browserSupportsSpeechRecognition) {
-      showNotification({
-        color: 'yellow',
-        message: 'Speech recognition is not supported in this browser',
-        autoClose: 3000
-      });
-      return;
-    }
-
-    if (listening) {
-      await stopListening();
-    } else {
-      await startListening();
-    }
-  };
-
-  const displayText = inputText + (interimTranscript ? ` ${interimTranscript}` : '');
-
   if (loadingPatient) {
     return <Loading />;
-  }
-
-  if (!browserSupportsSpeechRecognition) {
-    return (
-      <Document shadow="xs">
-        <Stack>
-          <Text fw={500}>Create a new {resourceType} using Natural Language</Text>
-          <Textarea
-            label="Enter your description"
-            placeholder={`Describe the ${resourceType.toLowerCase()} in natural language...`}
-            minRows={4}
-            value={displayText}
-            onChange={(e) => setInputText(e.currentTarget.value)}
-          />
-          <Button 
-            onClick={handleSubmit} 
-            loading={loading}
-            disabled={!displayText.trim()}
-          >
-            <IconSparkles size={14} style={{ marginRight: 8 }} />
-            Create {resourceType}
-          </Button>
-          {outcome && <OperationOutcomeAlert outcome={outcome} />}
-          <Space h="xl" />
-          <Box ta="center">
-            <PhenoMLBranding />
-          </Box>
-        </Stack>
-      </Document>
-    );
   }
 
   return (
     <Document shadow="xs">
       <Stack>
         <Text fw={500}>Create a new {resourceType} using Natural Language</Text>
+        
         <Group align="flex-start">
           <Textarea
             style={{ flex: 1 }}
             label="Enter your description"
             placeholder={`Describe the ${resourceType.toLowerCase()} in natural language...`}
             minRows={4}
-            value={displayText}
+            value={inputText}
             onChange={(e) => setInputText(e.currentTarget.value)}
           />
           <ActionIcon 
             size="lg"
             variant="light"
-            color={listening ? "red" : "blue"}
-            onClick={toggleListening}
+            color={isRecording ? "red" : "blue"}
+            onClick={isRecording ? stopRecording : startRecording}
             mt={25}
-            title={listening ? "Stop recording" : "Start recording"}
+            disabled={isModelLoading || isProcessing}
+            title={isRecording ? "Stop recording" : "Start recording"}
           >
-            {listening ? <IconMicrophoneOff size={20} /> : <IconMicrophone size={20} />}
+            {isRecording ? <IconMicrophoneOff size={20} /> : <IconMicrophone size={20} />}
           </ActionIcon>
         </Group>
+
+        {(isModelLoading || isProcessing) && (
+          <Text size="sm" c="dimmed">
+            {isModelLoading ? "Loading speech recognition model..." : "Processing audio..."}
+          </Text>
+        )}
+
         <Button 
           onClick={handleSubmit} 
           loading={loading}
-          disabled={!displayText.trim()}
+          disabled={!inputText.trim() || isRecording || isProcessing}
         >
           <IconSparkles size={14} style={{ marginRight: 8 }} />
           Create {resourceType}
