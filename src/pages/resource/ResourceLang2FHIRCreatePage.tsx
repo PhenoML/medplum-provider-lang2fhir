@@ -103,7 +103,6 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
   };
 
   // Stop recording
-  // Stop recording
   const stopRecording = (): void => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
@@ -123,26 +122,11 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
     
     try {
       setIsProcessing(true);
-      
-      // Convert Blob to ArrayBuffer
       const arrayBuffer = await audioBlob.arrayBuffer();
-      
-      // Create AudioContext and decode audio
       audioContext = new AudioContext({ sampleRate: 16000 });
       const audioData = await audioContext.decodeAudioData(arrayBuffer);
-      
-      // Get audio data as Float32Array
       const audioArray = audioData.getChannelData(0);
-      
-      // Log the audio data to verify it's a Float32Array
-      console.log('Audio data type:', audioArray.constructor.name);
-      console.log('Audio data length:', audioArray.length);
-      console.log('Is Float32Array?', audioArray instanceof Float32Array);
-      
-      // Pass the Float32Array directly to Whisper
       const result = await whisperRef.current(audioArray);
-      
-      console.log('Transcription result:', result);
       
       setInputText(prev => {
         const newText = prev + (prev.length > 0 ? ' ' : '') + result.text;
@@ -187,7 +171,7 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
 
       const createdResource = await medplum.createResource(generatedResource);
       
-      // Navigate appropriately based on whether resource is patient-dependent
+      // Navigate based on whether resource is patient-dependent
       const navigationPath = requiresPatient && patient
         ? prependPatientPath(patient, `/${createdResource.resourceType}/${createdResource.id}`)
         : `/${createdResource.resourceType}/${createdResource.id}`;
