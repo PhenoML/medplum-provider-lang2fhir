@@ -1,14 +1,22 @@
 import { BotEvent, MedplumClient } from '@medplum/core';
-import { QuestionnaireResponse, Observation, Procedure, Condition, Patient, MedicationRequest, CarePlan } from '@medplum/fhirtypes';
+import { QuestionnaireResponse, Observation, Procedure, Condition, Patient, MedicationRequest, CarePlan, PlanDefinition, Questionnaire } from '@medplum/fhirtypes';
 import { Buffer } from 'buffer';
 
 /**
  * A Medplum Bot that processes documents using the lang2fhir API.
  * 
- * Example input:
+ * Example inputs:
+ * Patient-dependent:
  * {
  *   "text": "Advise patient to avoid heavy lifting and replace bandages daily",
- *   "resourceType": "CarePlan"
+ *   "resourceType": "CarePlan",
+ *   "patient": { ... }
+ * }
+ * 
+ * Patient-independent:
+ * {
+ *   "text": "Assess patient's pain levels using a scale of 1-10",
+ *   "resourceType": "Questionnaire"
  * }
  * 
  * The bot will:
@@ -29,13 +37,13 @@ interface CreateRequest {
 
 interface CreateBotInput {
   text: string;
-  resourceType: 'QuestionnaireResponse' | 'Observation' | 'Procedure' | 'Condition' | 'MedicationRequest' | 'CarePlan' ;
-  patient: Patient;
+  resourceType: 'QuestionnaireResponse' | 'Observation' | 'Procedure' | 'Condition' | 'MedicationRequest' | 'CarePlan' | 'PlanDefinition' | 'Questionnaire';
+  patient?: Patient;
 }
 
-type AllowedResourceTypes = QuestionnaireResponse | Observation | Procedure | Condition | MedicationRequest | CarePlan ;
+type AllowedResourceTypes = QuestionnaireResponse | Observation | Procedure | Condition | MedicationRequest | CarePlan | PlanDefinition | Questionnaire;
 
-
+const PATIENT_INDEPENDENT_RESOURCES = ['PlanDefinition', 'Questionnaire'] as const;
 const PHENOML_API_URL = "https://experiment.pheno.ml";
 
 export async function handler(
@@ -43,8 +51,7 @@ export async function handler(
   event: BotEvent<CreateBotInput>
 ): Promise<AllowedResourceTypes> {
   try {
-    const inputText = event.input.text;
-    const inputResourceType = event.input.resourceType;
+    const { text: inputText, resourceType: inputResourceType, patient } = event.input;
 
     if (!inputText) {
       throw new Error('No text input provided to bot');
@@ -53,14 +60,20 @@ export async function handler(
       throw new Error('No target resource type provided');
     }
 
-    // Limited set of resource types for demo purposes
-    if (!['Questionnaire', 'QuestionnaireResponse', 'Observation', 'Procedure', 'Condition', 'MedicationRequest', 'CarePlan'].includes(inputResourceType)) {
+    // Validate patient context for patient-dependent resources
+    const requiresPatient = !PATIENT_INDEPENDENT_RESOURCES.includes(inputResourceType as any);
+    if (requiresPatient && !patient) {
+      throw new Error(`Patient context is required for resource type: ${inputResourceType}`);
+    }
+
+    // Limited set of resource types
+    if (!['Questionnaire', 'QuestionnaireResponse', 'Observation', 'Procedure', 'Condition', 'MedicationRequest', 'CarePlan', 'PlanDefinition'].includes(inputResourceType)) {
       throw new Error(`Unsupported resource type: ${inputResourceType}`);
     }
 
     const targetResourceType = inputResourceType.toLowerCase();
 
-    // Transform to specific profiles for observation and condition, otherwise use the resource type as profile. Will update this in the future to extend to the other profiles but leaving as is for demo purposes. 
+    // Transform to specific profiles
     let targetResourceProfile: string;
     switch (targetResourceType) {
       case 'observation':
@@ -70,16 +83,14 @@ export async function handler(
         targetResourceProfile = 'condition-encounter-diagnosis';
         break;
       default:
-        // For all other resource types, use the resource type directly as the US Core profile is the same naming as the resource type
         targetResourceProfile = targetResourceType;
     }
 
     const email = event.secrets["PHENOML_EMAIL"].valueString as string;
     const password = event.secrets["PHENOML_PASSWORD"].valueString as string;
 
-    // Create base64 encoded credentials for Basic Auth
+    // Auth handling remains the same
     const credentials = Buffer.from(`${email}:${password}`).toString('base64');
-    // Get auth token using Basic Auth
     const authResponse = await fetch(PHENOML_API_URL + '/auth/token', {
       method: 'POST',
       headers: { 
@@ -98,10 +109,10 @@ export async function handler(
     if (!bearerToken) {
       throw new Error('No token received from auth response');
     }
-    // Prepare document request
+
     const createRequest: CreateRequest = {
-      version: 'R4', // FHIR R4
-      resource: targetResourceProfile, // Use the profile name as the resource
+      version: 'R4',
+      resource: targetResourceProfile,
       text: inputText
     };
 
@@ -120,8 +131,11 @@ export async function handler(
     }
 
     const generatedResource = await createResponse.json();
-    // Add the patient reference 
-    addPatientReference(generatedResource, event.input.patient);
+    
+    // Only add patient reference for patient-dependent resources
+    if (requiresPatient && patient) {
+      addPatientReference(generatedResource, patient);
+    }
 
     return generatedResource as AllowedResourceTypes;
   } catch (error) {
@@ -131,7 +145,7 @@ export async function handler(
 
 function addPatientReference(resource: any, patient: Patient): void {
   if (!['QuestionnaireResponse', 'Observation', 'Procedure', 'Condition', 'MedicationRequest', 'CarePlan'].includes(resource.resourceType)) {
-    throw new Error(`Unsupported resource type: ${resource.resourceType}`);
+    throw new Error(`Unsupported resource type for patient reference: ${resource.resourceType}`);
   }
   
   resource.subject = {

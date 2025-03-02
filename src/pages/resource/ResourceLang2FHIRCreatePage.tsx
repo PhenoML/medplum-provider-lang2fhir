@@ -12,15 +12,26 @@ import { PhenoMLBranding } from '../../components/PhenoMLBranding';
 import { IconSparkles, IconMicrophone, IconMicrophoneOff } from '@tabler/icons-react';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
+// Define which resource types don't require a patient
+const PATIENT_INDEPENDENT_RESOURCES = ['PlanDefinition', 'Questionnaire'] as const;
+type PatientIndependentResource = typeof PATIENT_INDEPENDENT_RESOURCES[number];
+
 export function ResourceLang2FHIRCreatePage(): JSX.Element {
   const medplum = useMedplum();
   const [outcome, setOutcome] = useState<OperationOutcome | undefined>();
   const [inputText, setInputText] = useState<string>('');
-  const patient = usePatient({ ignoreMissingPatientId: true, setOutcome });
   const navigate = useNavigate();
   const { patientId, resourceType } = useParams() as { patientId: string | undefined; resourceType: ResourceType };
-  const [loadingPatient, setLoadingPatient] = useState(Boolean(patientId));
   const [loading, setLoading] = useState(false);
+
+  // Only fetch patient if the resource type requires it AND we have a patientId
+  const requiresPatient = !PATIENT_INDEPENDENT_RESOURCES.includes(resourceType as PatientIndependentResource);
+  const patient = usePatient({ 
+    ignoreMissingPatientId: !requiresPatient || !patientId,
+    setOutcome: requiresPatient ? setOutcome : undefined // Only set outcome if we actually need a patient
+  });
+  const [loadingPatient, setLoadingPatient] = useState(Boolean(patientId && requiresPatient));
+
   const {
     listening,
     browserSupportsSpeechRecognition,
@@ -61,30 +72,37 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
       setOutcome(undefined);
     }
     
-    // Stop recording if submitting
     if (listening) {
       await stopListening();
     }
     
     setLoading(true);
     try {
-      // First, get the generated resource from the bot
       const lang2fhirCreateBot = await medplum.searchOne('Bot', { name: 'lang2fhir-create' });
       if (!lang2fhirCreateBot?.id) {
         throw new Error('Bot "lang2fhir-create" not found or invalid');
       }
 
-      const generatedResource = await medplum.executeBot(lang2fhirCreateBot.id, {
+      // Only include patient in bot input if resource type requires it
+      const botInput = {
         text: inputText,
-        resourceType: resourceType,
-        patient: patient,
-      }) as Resource;
+        resourceType,
+        ...(requiresPatient && patient && { patient }),
+      };
 
-      // Then create the resource 
+      const generatedResource = await medplum.executeBot(
+        lang2fhirCreateBot.id, 
+        botInput
+      ) as Resource;
+
       const createdResource = await medplum.createResource(generatedResource);
       
-      // Navigate to the newly created resource
-      navigate(prependPatientPath(patient, '/' + createdResource.resourceType + '/' + createdResource.id));
+      // Navigate appropriately based on whether resource is patient-dependent
+      const navigationPath = requiresPatient && patient
+        ? prependPatientPath(patient, `/${createdResource.resourceType}/${createdResource.id}`)
+        : `/${createdResource.resourceType}/${createdResource.id}`;
+      
+      navigate(navigationPath);
     } catch (err) {
       setOutcome(normalizeOperationOutcome(err));
       showNotification({

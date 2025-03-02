@@ -9,6 +9,7 @@ import {
   useMedplumProfile,
 } from '@medplum/react';
 import {
+  IconChecklist,
   IconClipboardCheck,
   IconClipboardText,
   IconForms,
@@ -25,7 +26,8 @@ import { OnboardingPage } from './pages/OnboardingPage';
 import { SearchPage } from './pages/SearchPage';
 import { SignInPage } from './pages/SignInPage';
 import { EditTab } from './pages/patient/EditTab';
-import { EncounterTab } from './pages/patient/EncounterTab';
+import { EncounterChart } from './pages/encounter/EncounterChart';
+import { EncounterModal } from './pages/encounter/EncounterModal';
 import { PatientPage } from './pages/patient/PatientPage';
 import { PatientSearchPage } from './pages/patient/PatientSearchPage';
 import { TimelineTab } from './pages/patient/TimelineTab';
@@ -40,6 +42,7 @@ import { UploadDataPage } from './pages/UploadDataPage';
 import { SourceDocumentPage } from './pages/resource/SourceDocumentPage';
 import { ResourceLang2FHIRCreatePage } from './pages/resource/ResourceLang2FHIRCreatePage';
 import { CreateCohortPage } from './pages/resource/CreateCohortPage';
+import { TaskDetails } from './pages/tasks/TaskDetails';
 
 
 export function App(): JSX.Element | null {
@@ -73,9 +76,10 @@ export function App(): JSX.Element | null {
           ],
         },   
         {
-          title: 'Create Cohort',
+          title: 'Create Resources',
           links: [
             { icon: <IconUsersGroup />, label: 'Create Cohort', href: '/create-cohort' },
+            { icon: <IconChecklist />, label: 'Create Plan Definition', href: '/PlanDefinition/new' },
           ],
         },     
       ]}
@@ -117,8 +121,11 @@ export function App(): JSX.Element | null {
             <>
               <Route path="/" element={<HomePage />} />
               <Route path="/Patient/:patientId" element={<PatientPage />}>
+              <Route path="Encounter/new" element={<EncounterModal />} />
+                <Route path="Encounter/:encounterId" element={<EncounterChart />}>
+                  <Route path="Task/:taskId" element={<TaskDetails />} />
+                </Route>
                 <Route path="edit" element={<EditTab />} />
-                <Route path="encounter" element={<EncounterTab />} />
                 <Route path="communication" element={<CommunicationTab />} />
                 <Route path="communication/:id" element={<CommunicationTab />} />
                 <Route path="task/:id/*" element={<TaskTab />} />
@@ -135,10 +142,12 @@ export function App(): JSX.Element | null {
                 </Route>
                 <Route path="" element={<TimelineTab />} />
               </Route>
+              <Route path="Task/:id/*" element={<TaskTab />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
               <Route path="/signin" element={<SignInPage />} />
               <Route path="/:resourceType" element={<SearchPage />} />
               <Route path="/:resourceType/new" element={<ResourceCreatePage />} />
+              <Route path=":resourceType/new/lang2fhir" element={<ResourceLang2FHIRCreatePage />} />
               <Route path="/:resourceType/:id" element={<ResourcePage />}>
                 <Route path="" element={<ResourceDetailPage />} />
                 <Route path="edit" element={<ResourceEditPage />} />
