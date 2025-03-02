@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "build": "tsc && vite build",
-    "dev": "vite",
+    "build:bots": "npm run clean && npm run lint && tsc --project tsconfig-bots.json && node --loader ts-node/esm src/scripts/deploy-bots.ts",
+    "clean": "rimraf dist",
+    "dev": "npm run build:bots && vite",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "prettier": {
     "printWidth": 120,
@@ -15,6 +18,9 @@
     "trailingComma": "es5"
   },
   "eslintConfig": {
+    "parserOptions": {
+      "project": "./tsconfig.json"
+    },
     "extends": [
       "@medplum/eslint-config"
     ]
@@ -33,12 +39,16 @@
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "@vitejs/plugin-react": "4.3.4",
+    "@huggingface/transformers": "^3.3.3",
     "postcss": "8.5.1",
     "postcss-preset-mantine": "1.17.0",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-router-dom": "6.28.0",
+    "rimraf": "5.0.9",
+    "ts-node": "10.9.2",
     "typescript": "5.7.3",
-    "vite": "6.1.0"
+    "vite": "6.1.0",
+    "vitest": "^2.1.9"
   }
 }
