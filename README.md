@@ -14,6 +14,10 @@ This example app is a fork of the [Medplum Charting Demo](https://github.com/med
 - AI medical scribe in the browser (using [Hugging Face's Transformers.js](https://huggingface.co/docs/transformers.js/en/index) with whisper-tiny model) to convert audio to FHIR resources
 - Describe a patient cohort in language and generate a FHIR Group resource
 
+### :video_camera: Demo Video
+
+[![YouTube](http://i.ytimg.com/vi/q0bikQTw36c/hqdefault.jpg)](https://www.youtube.com/watch?v=q0bikQTw36c)
+
 ### :gear: Getting Started
 
 PhenoML Auth Token:
