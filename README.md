@@ -1,56 +1,48 @@
-<h1 align="center">Medplum Charting Demo</h1>
-<p align="center">A starter application for building a charting app on Medplum.</p>
+<h1 align="center">AI Powered Charting Demo</h1>
+<p align="center">Medplum charting demo with PhenoML's Lang2FHIR integration</p>
 <p align="center">
 <a href="https://github.com/medplum/medplum-hello-world/blob/main/LICENSE.txt">
     <img src="https://img.shields.io/badge/license-Apache-blue.svg" />
   </a>
 </p>
 
-This example app demonstrates the following:
+This example app is a fork of the [Medplum Charting Demo](https://github.com/medplum/medplum-hello-world) with PhenoML's Lang2FHIR integration showcasing an AI powered charting experience.
 
-- Using [Medplum React Components](https://storybook.medplum.com/?path=/docs/medplum-introduction--docs) to display a chart that provides visibility on a patient
-  - More information on a [charting experience](https://www.medplum.com/docs/charting)
-- Using [Medplum GraphQL](https://graphiql.medplum.com/) queries to fetch linked resources
+- Using [Lang2FHIR](https://developer.pheno.ml/reference/post_lang2fhir-create) to convert natural language to FHIR resources
 
-### Components of the Patient Chart
+### :robot: AI use cases powered by Lang2FHIR in this demo application
 
-The Patient Chart has 3 distinct panels
+- Upload pdfs and images and convert them to FHIR Questionnaire and QuestionnaireResponse resources
+- Describe plan definitions, medication requests, and care plans in natural language and have them converted to FHIR resources
+- AI transcription in the browser (using Whisper) powered generation of FHIR Observations from audio files
+- Describe a patient cohort in language and generate a FHIR Group resource
 
-1. Clinical Chart
-   The left panel shows the patient history and their status. Notable information in the clinical chart includes the following Resources:
+### :gear: Getting Started
 
-   - Patient Information
-   - Upcoming Appointments
-   - Documented Visits
-   - List of Allergies
-   - List of Problems
-   - Medication Requests
-   - Smoking Status
-   - Vitals
+PhenoML Auth Token:
+Follow instructions here to get started with lang2FHIR, you'll need to create an account and get your credentials(free trial and no credit card required to sign up for an Experiment plan): [PhenoML Developer Docs](https://developer.pheno.ml/docs/getting-started), [PhenoML Plans](https://www.phenoml.com/plans)
 
-2. Tasks
-   The center panel shows list of the Task resource with a different focus resource. See our [Tasks Guide](https://www.medplum.com/docs/careplans/tasks) for more details.
+This app reads and writes from PhenoML's Lang2FHIR API, which requires the auth token from your PhenoML account. Authentication is handled by bots, but the necessary secrets must be set up in your Medplum project. Importantly, Experiment and Develop plans are for non-production/non PHI use, you'll need to be on a Launch plan for production/PHI usage.
 
-   - Each focus is interactive to either review or fill out
-   - This example project demonstrates interactions of the following resources:
-     - Questionnaire
-     - QuestionnaireResponse
-     - DiagnosticReport
-     - CarePlan
+These credentials can be accessed in your PhenoML account via signing in tothe [Developer Portal](https://developer.pheno.ml/portal) with your email to generate a one-time link. Copy the email and passsword populated in your portal when you sign in and navigate to [Getting Started](https://developer.pheno.ml/reference/getting-started#/).
 
-3. SOAP Note
-   The right most panel documents an encounter with the patient through a questionnaire. Filling out and submitting the questionnaire automatically creates a task, with the response as the focus to be reviewed.
+Once you have copied your credentials you'll need to update them as secrets in your Medplum project. This can be done in the Medplum App. Navigate to admin page by clicking on Project in the Admin section of the sidebar. In the Secrets tab, click Add Secret and create secrets for your PhenoML email and and password with names of PHENOML_EMAIL and PHENOML_PASSWORD. 
 
-### Getting Started
-
+Medplum: 
 If you haven't already done so, follow the instructions in [this tutorial](https://www.medplum.com/docs/tutorials/register) to register a Medplum project to store your data.
 
-[Fork](https://github.com/medplum/medplum-provider/fork) and clone the repo.
+[Fork](https://github.com/PhenoML/medplum-provider-lang2fhir/fork) and clone the repo.
 
 Next, install the dependencies.
 
 ```bash
 npm install
+```
+
+Then, build the bots.
+
+```bash
+npm run build:bots
 ```
 
 Then, run the app
@@ -60,6 +52,15 @@ npm run dev
 ```
 
 This app should run on `http://localhost:3000/`
+
+### About PhenoML
+[PhenoML](https://www.phenoml.com/) is a developer platform for healthcare AI. 
+
+PhenoML's Lang2FHIR API converts natural language to FHIR resources. It's a powerful tool for healthcare AI, and it's used in this demo application to convert natural language to FHIR resources. For benchmarking results on lang2FHIR API performance and accuracy, see [PhenoML's Lang2FHIR API Benchmark](https://github.com/PhenoML/phenoml_benchmarks).
+
+- Read our [docs](https://developer.pheno.ml)
+- Check out our [Youtube channel](https://www.youtube.com/@phenomldev)
+- Come hang on [Discord](https://discord.gg/QgxDjNBxdV)
 
 ### About Medplum
 

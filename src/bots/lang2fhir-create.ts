@@ -5,24 +5,10 @@ import { Buffer } from 'buffer';
 /**
  * A Medplum Bot that processes documents using the lang2fhir API.
  * 
- * Example inputs:
- * Patient-dependent:
- * {
- *   "text": "Advise patient to avoid heavy lifting and replace bandages daily",
- *   "resourceType": "CarePlan",
- *   "patient": { ... }
- * }
- * 
- * Patient-independent:
- * {
- *   "text": "Assess patient's pain levels using a scale of 1-10",
- *   "resourceType": "Questionnaire"
- * }
- * 
  * The bot will:
  * 1. Send the text to the lang2fhir API
  * 2. Create a FHIR resource of the type specified in the input
- * 3. Add the patient reference to the resource
+ * 3. Add the patient reference to the resource (if the resource is patient-dependent)
  * 
  * Required bot secrets: (You need to have an active PhenoML subscription to use this bot)
  * - PHENOML_EMAIL: Your PhenoML API email
