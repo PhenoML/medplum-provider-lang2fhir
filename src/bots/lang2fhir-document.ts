@@ -5,17 +5,6 @@ import { Buffer } from 'buffer';
 /**
  * A Medplum Bot that processes documents using the lang2fhir API.
  * 
- * Example input:
- * {
- *   "media": {
- *     "content": {
- *       "url": "https://example.com/document.pdf",
- *       "contentType": "application/pdf"
- *     }
- *   },
- *   "resourceType": "Questionnaire"
- * }
- * 
  * The bot will:
  * 1. Download the document from the provided URL
  * 2. Send the document to the lang2fhir API
