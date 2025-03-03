@@ -11,7 +11,7 @@ This example app is a fork of the [Medplum Charting Demo](https://github.com/med
 
 - Upload pdfs and images and convert them to FHIR Questionnaire and QuestionnaireResponse resources
 - Describe plan definitions, medication requests, and care plans in natural language and have them converted to FHIR resources
-- AI transcription in the browser (using Whisper) powered generation of FHIR Observations from audio files
+- AI medical scribe in the browser (using [Hugging Face's Transformers.js](https://huggingface.co/docs/transformers.js/en/index) with whisper-tiny model) to convert audio to FHIR resources
 - Describe a patient cohort in language and generate a FHIR Group resource
 
 ### :gear: Getting Started
