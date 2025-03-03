@@ -1,10 +1,11 @@
-import { Stack, Text } from '@mantine/core';
+import { Stack, Text, Group, Button } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { createReference, normalizeErrorString, normalizeOperationOutcome } from '@medplum/core';
 import { OperationOutcome, Patient, Resource, ResourceType } from '@medplum/fhirtypes';
 import { Document, Loading, useMedplum } from '@medplum/react';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { IconSparkles } from '@tabler/icons-react';
 import { usePatient } from '../../hooks/usePatient';
 import { prependPatientPath } from '../patient/PatientPage.utils';
 import { ResourceFormWithRequiredProfile } from '../../components/ResourceFormWithRequiredProfile';
@@ -39,6 +40,24 @@ function getDefaultValue(resourceType: ResourceType, patient: Patient | undefine
   }
 
   return dv;
+}
+
+// Define supported resource types for demo purposes
+const LANG2FHIR_SUPPORTED_TYPES = [
+  'QuestionnaireResponse',
+  'Observation',
+  'Procedure',
+  'Condition',
+  'MedicationRequest',
+  'CarePlan',
+  'PlanDefinition',
+  'Questionnaire'
+] as const;
+
+type Lang2FHIRSupportedType = typeof LANG2FHIR_SUPPORTED_TYPES[number];
+
+function isLang2FHIRSupported(resourceType: string): resourceType is Lang2FHIRSupportedType {
+  return LANG2FHIR_SUPPORTED_TYPES.includes(resourceType as Lang2FHIRSupportedType);
 }
 
 export function ResourceCreatePage(): JSX.Element {
@@ -78,6 +97,11 @@ export function ResourceCreatePage(): JSX.Element {
       });
   };
 
+  const handleLang2FHIRClick = (): void => {
+    const basePath = patientId ? `/Patient/${patientId}/${resourceType}` : `/${resourceType}`;
+    navigate(`${basePath}/new/lang2fhir`);
+  };
+
   if (loadingPatient) {
     return <Loading />;
   }
@@ -85,7 +109,18 @@ export function ResourceCreatePage(): JSX.Element {
   return (
     <Document shadow="xs">
       <Stack>
-        <Text fw={500}>New&nbsp;{resourceType}</Text>
+        <Group justify="space-between">
+          <Text fw={500}>New {resourceType}</Text>
+          {isLang2FHIRSupported(resourceType) && (
+            <Button 
+              variant="light" 
+              leftSection={<IconSparkles size={16} />}
+              onClick={handleLang2FHIRClick}
+            >
+              Create with Natural Language
+            </Button>
+          )}
+        </Group>
         <ResourceFormWithRequiredProfile
           defaultValue={defaultValue}
           onSubmit={handleSubmit}

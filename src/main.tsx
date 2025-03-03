@@ -2,7 +2,7 @@ import { MantineProvider, createTheme } from '@mantine/core';
 import '@mantine/core/styles.css';
 import { MedplumClient } from '@medplum/core';
 import { MedplumProvider } from '@medplum/react';
-// import '@medplum/react/styles.css';
+import '@medplum/react/styles.css';
 import { Notifications } from '@mantine/notifications';
 import '@mantine/notifications/styles.css';
 import { StrictMode } from 'react';
@@ -12,7 +12,7 @@ import { App } from './App';
 
 const medplum = new MedplumClient({
   onUnauthenticated: () => (window.location.href = '/'),
-  // baseUrl: 'http://localhost:8103/', // Uncomment this to run against the server on your localhost
+  baseUrl: 'http://localhost:8103/', // Uncomment this to run against the server on your localhost
   cacheTime: 60000,
   autoBatchTime: 100,
 });
