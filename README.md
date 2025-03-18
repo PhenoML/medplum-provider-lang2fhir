@@ -40,7 +40,7 @@ Next, install the dependencies.
 npm install
 ```
 
-Then, build the bots.
+Then, build the bots. Of note, if you are running this app locally with a locally hosted Medplum server you'll need to modify the context of the bots to use the `vmcontext` instead of `awslambda`. To do this, modify `runtimeVersion: 'awslambda'` to be `runtimeVersion: 'vmcontext'` in the  `deploy-bots.ts` script and then build the bots. 
 
 ```bash
 npm run build:bots
