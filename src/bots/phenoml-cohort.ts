@@ -36,7 +36,7 @@ interface CohortBotInput {
   };
 }
 
-const PHENOML_API_URL = "https://experiment.pheno.ml"
+const PHENOML_API_URL = "https://experiment.app.pheno.ml"
 
 export async function handler(medplum: MedplumClient, event: BotEvent<CohortBotInput>): Promise<Group> {
   const email = event.secrets["PHENOML_EMAIL"].valueString as string;
