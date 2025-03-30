@@ -27,7 +27,7 @@ interface DocBotInput {
   resourceType: 'Questionnaire' | 'QuestionnaireResponse';
 }
 
-const PHENOML_API_URL = "https://experiment.pheno.ml";
+const PHENOML_API_URL = "https://experiment.app.pheno.ml";
 
 
 export async function handler(

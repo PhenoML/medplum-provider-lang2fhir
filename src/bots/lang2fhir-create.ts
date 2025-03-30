@@ -30,7 +30,7 @@ interface CreateBotInput {
 type AllowedResourceTypes = QuestionnaireResponse | Observation | Procedure | Condition | MedicationRequest | CarePlan | PlanDefinition | Questionnaire;
 
 const PATIENT_INDEPENDENT_RESOURCES = ['PlanDefinition', 'Questionnaire'] as const;
-const PHENOML_API_URL = "https://experiment.pheno.ml";
+const PHENOML_API_URL = "https://experiment.app.pheno.ml";
 
 export async function handler(
   medplum: MedplumClient, 

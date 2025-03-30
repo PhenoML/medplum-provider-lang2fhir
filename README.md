@@ -29,6 +29,11 @@ Your credentials can be accessed in your PhenoML account by signing in to the [P
 
 Once you have copied your credentials you'll need to update them as secrets in your Medplum project. This can be done in the Medplum App. Navigate to admin page by clicking on Project in the Admin section of the sidebar. In the Secrets tab, click Add Secret and create secrets for your PhenoML email and and password with names of PHENOML_EMAIL and PHENOML_PASSWORD. 
 
+### :exclamation::exclamation: **IMPORTANT**: Medplum Pre-Requisites
+**This demo application will NOT work unless you already have the Medplum stack set up** either locally or using Medplum's hosted services.
+
+If you want to run this app locally with locally hosted Medplum you will need to follow the instructions here including all pre-requisites for Medplum: [here](https://www.medplum.com/docs/contributing/run-the-stack)
+
 Medplum: 
 If you haven't already done so, follow the instructions in [this tutorial](https://www.medplum.com/docs/tutorials/register) to register a Medplum project to store your data.
 
