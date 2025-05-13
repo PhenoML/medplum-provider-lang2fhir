@@ -14,6 +14,7 @@ import {
   IconClipboardText,
   IconForms,
   IconMail,
+  IconMicroscope,
   IconRobot,
   IconUser,
   IconUsersGroup,
@@ -80,6 +81,7 @@ export function App(): JSX.Element | null {
           links: [
             { icon: <IconUsersGroup />, label: 'Create Cohort', href: '/create-cohort' },
             { icon: <IconChecklist />, label: 'Create Plan Definition', href: '/PlanDefinition/new' },
+            { icon: <IconMicroscope />, label: 'Create Research Study', href: '/ResearchStudy/new' },
           ],
         },     
       ]}

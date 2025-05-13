@@ -51,7 +51,8 @@ const LANG2FHIR_SUPPORTED_TYPES = [
   'MedicationRequest',
   'CarePlan',
   'PlanDefinition',
-  'Questionnaire'
+  'Questionnaire',
+  'ResearchStudy'
 ] as const;
 
 type Lang2FHIRSupportedType = typeof LANG2FHIR_SUPPORTED_TYPES[number];

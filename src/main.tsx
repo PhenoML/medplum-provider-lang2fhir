@@ -12,7 +12,7 @@ import { App } from './App';
 
 const medplum = new MedplumClient({
   onUnauthenticated: () => (window.location.href = '/'),
-  baseUrl: 'http://localhost:8103/', // Comment this to run against Medplum hosted server instead of localhost
+  // baseUrl: 'http://localhost:8103/', // Comment this to run against Medplum hosted server instead of localhost
   cacheTime: 60000,
   autoBatchTime: 100,
 });

@@ -14,7 +14,7 @@ import { env, pipeline } from '@huggingface/transformers';
 
 
 // Define which resource types don't require a patient
-const PATIENT_INDEPENDENT_RESOURCES = ['PlanDefinition', 'Questionnaire'] as const;
+const PATIENT_INDEPENDENT_RESOURCES = ['PlanDefinition', 'Questionnaire', 'ResearchStudy'] as const;
 type PatientIndependentResource = typeof PATIENT_INDEPENDENT_RESOURCES[number];
 
 env.allowLocalModels = false;
