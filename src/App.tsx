@@ -44,6 +44,7 @@ import { SourceDocumentPage } from './pages/resource/SourceDocumentPage';
 import { ResourceLang2FHIRCreatePage } from './pages/resource/ResourceLang2FHIRCreatePage';
 import { CreateCohortPage } from './pages/resource/CreateCohortPage';
 import { TaskDetails } from './pages/tasks/TaskDetails';
+import { ClinicalTrialsTab } from './pages/patient/ClinicalTrialsTab';
 
 
 export function App(): JSX.Element | null {
@@ -130,6 +131,7 @@ export function App(): JSX.Element | null {
                 <Route path="edit" element={<EditTab />} />
                 <Route path="communication" element={<CommunicationTab />} />
                 <Route path="communication/:id" element={<CommunicationTab />} />
+                <Route path="clinicaltrials" element={<ClinicalTrialsTab />} />
                 <Route path="task/:id/*" element={<TaskTab />} />
                 <Route path="timeline" element={<TimelineTab />} />
                 <Route path=":resourceType" element={<PatientSearchPage />} />

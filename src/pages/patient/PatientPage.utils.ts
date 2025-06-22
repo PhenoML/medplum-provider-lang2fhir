@@ -81,5 +81,6 @@ export const PatientPageTabs: PatientPageTabInfo[] = [
   },
   { id: 'communication', url: 'communication', label: 'Communications' },
   { id: 'dosespot', url: 'dosespot', label: 'DoseSpot' },
+  { id: 'clinicaltrials', url: 'clinicaltrials', label: 'Clinical Trials' },
   { id: 'export', url: 'export', label: 'Export' },
 ];

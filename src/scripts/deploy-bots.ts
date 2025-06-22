@@ -21,6 +21,10 @@ const Bots: BotDescription[] = [
   {
     src: 'src/bots/phenoml-cohort.ts',
     dist: 'dist/phenoml-cohort.js',
+  }, 
+  {
+    src: 'src/bots/clinical-trials-bot.ts',
+    dist: 'dist/clinical-trials-bot.js',
   }
 ];
 
