@@ -54,6 +54,7 @@ async function main(): Promise<void> {
             contentType: ContentType.JAVASCRIPT,
             url: distEntry.fullUrl,
           },
+          timeout: 100,
         } as Bot,
       });
 

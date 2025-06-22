@@ -3,7 +3,7 @@ import { normalizeErrorString, MedplumClient, getReferenceString, WithId } from 
 import { AttachmentButton, Document, useMedplum, useMedplumProfile, ResourceBadge, ResourceInput } from '@medplum/react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { showNotification } from '@mantine/notifications';
-import { Attachment, Bot, Bundle, Questionnaire, QuestionnaireResponse, Resource, Patient, OperationOutcome, DocumentReference,  BundleEntry } from '@medplum/fhirtypes';
+import { Attachment, Bot, Bundle, Questionnaire, Resource, Patient, OperationOutcome, DocumentReference, BundleEntry, Observation } from '@medplum/fhirtypes';
 import { IconCircleCheck, IconCircleOff, IconUpload, IconAlertCircle, IconRobot } from '@tabler/icons-react';
 import { useCallback, useState } from 'react';
 import exampleBotData from '../../data/example/example-bots.json';
@@ -63,6 +63,8 @@ export function UploadDataPage(): JSX.Element {
     }
   }, [medplum, profile]);
 
+  const needsPatientSelection = dataType === 'QuestionnaireResponse' || dataType === 'Observation';
+
   return (
     <Document>
       <LoadingOverlay visible={pageDisabled} />
@@ -84,32 +86,32 @@ export function UploadDataPage(): JSX.Element {
           </Button>
         ) : (
           <>
+            {needsPatientSelection && (
+              <Box mb="md">
+                <ResourceInput
+                  resourceType="Patient"
+                  name="patient"
+                  placeholder="Search for patient..."
+                  onChange={(patient) => setSelectedPatient(patient as Patient)}
+                />
+                {selectedPatient && <ResourceBadge value={selectedPatient} />}
+              </Box>
+            )}
             {dataType === 'QuestionnaireResponse' && (
-              <>
-                <Box mb="md">
-                  <ResourceInput
-                    resourceType="Patient"
-                    name="patient"
-                    placeholder="Search for patient..."
-                    onChange={(patient) => setSelectedPatient(patient as Patient)}
-                  />
-                  {selectedPatient && <ResourceBadge value={selectedPatient} />}
-                </Box>
-                <Box mb="md">
-                  <ResourceInput
-                    resourceType="Questionnaire"
-                    name="questionnaire"
-                    placeholder="Search for questionnaire..."
-                    onChange={(questionnaire) => setSelectedQuestionnaire(questionnaire as Questionnaire)}
-                  />
-                  {selectedQuestionnaire && <ResourceBadge value={selectedQuestionnaire} />}
-                </Box>
-              </>
+              <Box mb="md">
+                <ResourceInput
+                  resourceType="Questionnaire"
+                  name="questionnaire"
+                  placeholder="Search for questionnaire..."
+                  onChange={(questionnaire) => setSelectedQuestionnaire(questionnaire as Questionnaire)}
+                />
+                {selectedQuestionnaire && <ResourceBadge value={selectedQuestionnaire} />}
+              </Box>
             )}
             <AttachmentButton 
               onUpload={handleFileUpload} 
               onUploadError={showErrorNotification}
-              disabled={dataType === 'QuestionnaireResponse' && !selectedPatient}
+              disabled={needsPatientSelection && !selectedPatient}
             >
               {(props) => (
                 <Button fullWidth {...props}>
@@ -120,7 +122,7 @@ export function UploadDataPage(): JSX.Element {
             </AttachmentButton>
           </>
         )}
-        {(dataType === 'QuestionnaireResponse' || dataType === 'Questionnaire') && (
+        {(dataType === 'QuestionnaireResponse' || dataType === 'Questionnaire' || dataType === 'Observation') && (
           <>
             <Space h="xl" />
             <Box ta="center">
@@ -157,34 +159,54 @@ async function processDocument(
   });
 
   // Process document
-  const result = await medplum.executeBot(
+  let result = await medplum.executeBot(
     lang2fhirDocumentBot.id,
     { docref, resourceType }
-  ) as QuestionnaireResponse | Questionnaire;
+  ) as Resource;
 
-  // Add Media reference as extension
-  result.extension = [{
-    url: 'https://example.org/fhir/StructureDefinition/source-document',
-    valueReference: {
-      reference: `DocumentReference/${docref.id}`,
-      display: 'Source Document'
+  // Add Media reference as extension if the resource type supports extensions
+  // Most FHIR resources support extensions except for Binary
+  if (result.resourceType !== 'Binary') {
+    // Using any to bypass TypeScript restrictions since we know these resources support extensions
+    const resourceWithExtension = result as any;
+    if (!resourceWithExtension.extension) {
+      resourceWithExtension.extension = [];
     }
-  }];
+    
+    resourceWithExtension.extension.push({
+      url: 'https://example.org/fhir/StructureDefinition/source-document',
+      valueReference: {
+        reference: `DocumentReference/${docref.id}`,
+        display: 'Source Document'
+      }
+    });
+    
+    result = resourceWithExtension;
+  }
 
-  if (result.resourceType === 'QuestionnaireResponse') {
+  if (resourceType === 'QuestionnaireResponse' && result.resourceType === 'QuestionnaireResponse') {
+    const qResponse = result as any;
     if (selectedPatient) {
-      result.subject = {
+      qResponse.subject = {
         reference: `Patient/${selectedPatient.id}`,
         display: `Patient/${selectedPatient.id}`
       };
-      result.source = {
+      qResponse.source = {
         reference: `Patient/${selectedPatient.id}`,
         display: `Patient/${selectedPatient.id}`
       };
     }
     if (selectedQuestionnaire) {
-      result.questionnaire = `Questionnaire/${selectedQuestionnaire.id}`;
+      qResponse.questionnaire = `Questionnaire/${selectedQuestionnaire.id}`;
     }
+    result = qResponse;
+  } else if (resourceType === 'Observation' && result.resourceType === 'Observation' && selectedPatient) {
+    const obs = result as Observation;
+    obs.subject = {
+      reference: `Patient/${selectedPatient.id}`,
+      display: `Patient/${selectedPatient.id}`
+    };
+    result = obs;
   }
 
   const resource = await medplum.createResource(result);

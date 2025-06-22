@@ -1,5 +1,5 @@
 import { BotEvent, MedplumClient } from '@medplum/core';
-import { DocumentReference, Resource, Questionnaire, QuestionnaireResponse } from '@medplum/fhirtypes';
+import { DocumentReference, Resource, Questionnaire, QuestionnaireResponse, Observation, ResearchStudy } from '@medplum/fhirtypes';
 import { Buffer } from 'buffer';
 
 /**
@@ -24,7 +24,7 @@ interface DocumentRequest {
 
 interface DocBotInput {
   docref: DocumentReference;
-  resourceType: 'Questionnaire' | 'QuestionnaireResponse';
+  resourceType: 'Questionnaire' | 'QuestionnaireResponse' | 'Observation' | 'ResearchStudy';
 }
 
 const PHENOML_API_URL = "https://experiment.app.pheno.ml";
@@ -46,7 +46,7 @@ export async function handler(
       throw new Error('No target resource type provided');
     }
 
-    if (!['Questionnaire', 'QuestionnaireResponse'].includes(inputResourceType)) {
+    if (!['Questionnaire', 'QuestionnaireResponse', 'Observation', 'ResearchStudy'].includes(inputResourceType)) {
       throw new Error(`Unsupported resource type: ${inputResourceType}`);
     }
     
@@ -55,6 +55,16 @@ export async function handler(
     }
 
     const targetResourceType = inputResourceType.toLowerCase();
+
+    // Transform to specific profiles
+    let targetResourceProfile: string;
+    switch (targetResourceType) {
+      case 'observation':
+        targetResourceProfile = 'observation-lab';
+        break;
+      default:
+        targetResourceProfile = targetResourceType;
+    }
 
     // Download the file content from the pre-signed URL
     const blob = await medplum.download(inputDocRef.content?.[0].attachment?.url);
@@ -89,7 +99,7 @@ export async function handler(
     // Prepare document request
     const documentRequest: DocumentRequest = {
       version: 'R4', // FHIR R4
-      resource: targetResourceType,
+      resource: targetResourceProfile,
       content: content,
       fileType: inputDocRef.content?.[0].attachment?.contentType || 'application/pdf'
     };
@@ -116,7 +126,7 @@ export async function handler(
       throw new Error(`Failed to parse document response: ${error.message}`);
     });
 
-    return generatedResource as Questionnaire | QuestionnaireResponse; 
+    return generatedResource as Questionnaire | QuestionnaireResponse | Observation | ResearchStudy; 
   } catch (error) {
     throw new Error(`Bot execution failed: ${error instanceof Error ? error.message : String(error)}`);
   }

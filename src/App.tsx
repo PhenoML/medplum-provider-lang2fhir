@@ -74,6 +74,7 @@ export function App(): JSX.Element | null {
           links: [
             { icon: <IconClipboardText />, label: 'Upload Questionnaire', href: '/upload/Questionnaire' },
             { icon: <IconForms />, label: 'Upload Questionnaire Response', href: '/upload/QuestionnaireResponse' },
+            { icon: <IconMicroscope />, label: 'Upload Observation', href: '/upload/Observation' },
           ],
         },   
         {
