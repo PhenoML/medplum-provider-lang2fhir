@@ -1,5 +1,5 @@
 import { BotEvent, MedplumClient } from '@medplum/core';
-import { Patient, Condition, MedicationRequest, Communication, Practitioner } from '@medplum/fhirtypes';
+import { Patient, Condition, MedicationRequest, Communication, Practitioner, Device } from '@medplum/fhirtypes';
 
 /**
  * A Medplum Bot that analyzes patient data and searches for relevant clinical trials.
@@ -576,6 +576,39 @@ function formatAnalysisForCommunication(analysis: ClinicalAnalysis, originalTria
   return communication;
 }
 
+/**
+ * Find or create the Gemini Device resource
+ * @param medplum - Medplum client instance
+ * @returns Promise resolving to the Gemini Device resource
+ */
+async function getGeminiDevice(medplum: MedplumClient): Promise<Device> {
+  // First try to find existing Gemini device
+  const existingDevice = await medplum.searchOne('Device', {
+    manufacturer: 'Google',
+    'device-name': 'Gemini',
+    type: 'model-name'
+  });
+
+  if (existingDevice) {
+    return existingDevice;
+  }
+
+  // Create new Gemini device if not found
+  const geminiDevice: Device = {
+    resourceType: 'Device',
+    status: 'active',
+    manufacturer: 'Google',
+    deviceName: [
+      {
+        name: 'Gemini',
+        type: 'model-name'
+      }
+    ],
+  };
+
+  return medplum.createResource(geminiDevice);
+}
+
 export async function handler(
   medplum: MedplumClient,
   event: BotEvent<ClinicalTrialsBotInput>
@@ -596,6 +629,9 @@ export async function handler(
       throw new Error('Gemini API key not configured');
     }
 
+    // Get or create Gemini Device
+    const geminiDevice = await getGeminiDevice(medplum);
+
     // Analyze patient data
     const patientSummary = await analyzePatient(medplum, patient);
     console.log('Patient summary:', patientSummary);
@@ -611,7 +647,7 @@ export async function handler(
     // Create Communication resource
     const communication: Communication = {
       resourceType: 'Communication',
-      status: 'completed',
+      status: 'in-progress',
       category: [
         {
           coding: [
@@ -631,6 +667,10 @@ export async function handler(
         text: 'Clinical Trials Analysis'
       },
       sent: new Date().toISOString(),
+      sender: {
+        reference: `Device/${geminiDevice.id}`,
+        display: 'Gemini AI'
+      },
       payload: [
         {
           contentString: clinicalFindings
