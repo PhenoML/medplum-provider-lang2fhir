@@ -1,5 +1,5 @@
 import { BotEvent, MedplumClient } from '@medplum/core';
-import { Patient, Condition, MedicationRequest, Communication, Practitioner, Device } from '@medplum/fhirtypes';
+import { Patient, Condition, MedicationRequest, Task, Practitioner, Device } from '@medplum/fhirtypes';
 
 /**
  * A Medplum Bot that analyzes patient data and searches for relevant clinical trials.
@@ -8,7 +8,7 @@ import { Patient, Condition, MedicationRequest, Communication, Practitioner, Dev
  * 1. Gather patient's medical conditions, medications, and demographics
  * 2. Search ClinicalTrials.gov API for relevant trials
  * 3. Use Gemini AI to analyze patient data + trial results and generate findings
- * 4. Create a Communication to the practitioner with AI-generated findings
+ * 4. Create a Task assigned to the practitioner with AI-generated findings
  * 
  * Required bot secrets:
  * - GEMINI_API_KEY: Your Google Gemini API key
@@ -21,7 +21,7 @@ interface ClinicalTrialsBotInput {
 }
 
 interface ClinicalTrialsBotOutput {
-  communication: Communication;
+  task: Task;
   trialsFound: number;
 }
 
@@ -359,6 +359,16 @@ async function generateClinicalFindings(
 Conditions: ${patientSummary.conditions.length > 0 ? patientSummary.conditions.join(', ') : 'No active conditions found'}
 Current medications: ${patientSummary.medications.length > 0 ? patientSummary.medications.join(', ') : 'No active medications found'}`;
 
+    // Simplify trial data to reduce payload size and processing time
+    const simplifiedTrials = trials.map(trial => ({
+      nctId: trial.nctId,
+      title: trial.title,
+      briefSummary: trial.briefSummary.substring(0, 200), // Truncate summary
+      overallStatus: trial.overallStatus,
+      eligibilityCriteria: trial.eligibilityCriteria?.substring(0, 200), // Truncate criteria
+      url: trial.url
+    }));
+
     const analysisPrompt = `You are a clinical research specialist. Analyze the patient and each clinical trial to provide structured recommendations.
 
 PATIENT INFORMATION:
@@ -390,7 +400,7 @@ IMPORTANT: Only analyze the trials provided. Do not add or modify NCT IDs. Use t
               properties: {
                 nctId: {
                   type: "string",
-                  enum: trials.map(trial => trial.nctId),
+                  enum: simplifiedTrials.map(trial => trial.nctId),
                   description: "The exact NCT ID from the provided trials"
                 },
                 recommendation: {
@@ -448,7 +458,7 @@ IMPORTANT: Only analyze the trials provided. Do not add or modify NCT IDs. Use t
                 text: `${analysisPrompt}
 
 CLINICAL TRIALS TO ANALYZE:
-${JSON.stringify(trials, null, 2)}`
+${JSON.stringify(simplifiedTrials, null, 2)}`
               }
             ]
           }
@@ -644,57 +654,56 @@ export async function handler(
     const clinicalFindings = await generateClinicalFindings(patientSummary, trials, geminiApiKey);
     console.log('Gemini analysis completed');
 
-    // Create Communication resource
-    const communication: Communication = {
-      resourceType: 'Communication',
+    // Create Task resource
+    const task: Task = {
+      resourceType: 'Task',
       status: 'in-progress',
-      category: [
-        {
-          coding: [
-            {
-              system: 'http://terminology.hl7.org/CodeSystem/communication-category',
-              code: 'notification',
-              display: 'Notification'
-            }
-          ]
-        }
-      ],
-      subject: {
+      intent: 'proposal',
+      code: {
+        coding: [
+          {
+            system: 'http://snomed.info/sct',
+            code: '386053000',
+            display: 'Evaluation procedure'
+          }
+        ],
+        text: 'Evaluation procedure'
+      },
+      for: {
         reference: `Patient/${patient.id}`,
         display: patient.name?.[0] ? `${patient.name[0].given?.join(' ')} ${patient.name[0].family}` : 'Patient'
       },
-      topic: {
-        text: 'Clinical Trials Analysis'
-      },
-      sent: new Date().toISOString(),
-      sender: {
+      description: 'Analysis of relevant clinical trials for the patient',
+      priority: 'routine',
+      requester: {
         reference: `Device/${geminiDevice.id}`,
         display: 'Gemini AI'
       },
-      payload: [
+      output: [
         {
-          contentString: clinicalFindings
+          type: {
+            text: 'Clinical Trials Analysis Report'
+          },
+          valueString: clinicalFindings
         }
       ]
     };
 
-    // Add recipient (practitioner) if provided
+    // Add owner (practitioner) if provided
     if (practitioner?.id) {
-      communication.recipient = [
-        {
-          reference: `Practitioner/${practitioner.id}`,
-          display: practitioner.name?.[0] ? `${practitioner.name[0].given?.join(' ')} ${practitioner.name[0].family}` : 'Practitioner'
-        }
-      ];
+      task.owner = {
+        reference: `Practitioner/${practitioner.id}`,
+        display: practitioner.name?.[0] ? `${practitioner.name[0].given?.join(' ')} ${practitioner.name[0].family}` : 'Practitioner'
+      };
     }
 
-    // Create the communication in the FHIR server
-    const createdCommunication = await medplum.createResource(communication);
+    // Create the task in the FHIR server
+    const createdTask = await medplum.createResource(task);
 
-    console.log(`Created communication ${createdCommunication.id} with Gemini analysis of ${trials.length} clinical trials`);
+    console.log(`Created task ${createdTask.id} with Gemini analysis of ${trials.length} clinical trials`);
 
     return {
-      communication: createdCommunication,
+      task: createdTask,
       trialsFound: trials.length,
     };
   } catch (error) {
