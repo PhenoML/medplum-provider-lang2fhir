@@ -1,4 +1,7 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { Text, Anchor } from '@mantine/core';
+import { JSX } from 'react';
 import phenomlLogo from './phenoml.svg';
 
 export function PhenoMLBranding(): JSX.Element {

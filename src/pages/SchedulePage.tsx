@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { Box, Button, Drawer, Group, SegmentedControl, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { createReference, getReferenceString, WithId } from '@medplum/core';
@@ -181,7 +183,10 @@ export function SchedulePage(): JSX.Element | null {
         ]);
         const patient = encounters?.[0]?.subject;
         if (patient?.reference) {
-          navigate(`/${patient.reference}/Encounter/${encounters?.[0]?.id}`)?.catch(console.error);
+          const result = navigate(`/${patient.reference}/Encounter/${encounters?.[0]?.id}`);
+          if (result instanceof Promise) {
+            result.catch(console.error);
+          }
         }
       }
 

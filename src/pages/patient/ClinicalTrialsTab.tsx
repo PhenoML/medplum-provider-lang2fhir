@@ -1,9 +1,11 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { Button, Card, Group, Loader, Stack, Text, Title, Alert, Badge, Divider } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeErrorString } from '@medplum/core';
 import { useMedplum } from '@medplum/react';
 import { IconSearch, IconInfoCircle, IconMapPin, IconStethoscope, IconPill } from '@tabler/icons-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, JSX } from 'react';
 import { usePatient } from '../../hooks/usePatient';
 
 interface SearchCriteria {

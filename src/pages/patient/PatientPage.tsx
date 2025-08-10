@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { Loader, Modal, ScrollArea } from '@mantine/core';
 import { getReferenceString, isOk } from '@medplum/core';
 import { OperationOutcome } from '@medplum/fhirtypes';
@@ -41,7 +43,10 @@ export function PatientPage(): JSX.Element {
       const tab = newTabName ? PatientPageTabs.find((t) => t.id === newTabName) : PatientPageTabs[0];
       if (tab) {
         setCurrentTab(tab.id);
-        navigate(formatPatientPageTabUrl(patient.id, tab))?.catch(console.error);
+        const result = navigate(formatPatientPageTabUrl(patient.id, tab));
+        if (result instanceof Promise) {
+          result.catch(console.error);
+        }
       }
     },
     [navigate, patient?.id]
@@ -85,11 +90,8 @@ export function PatientPage(): JSX.Element {
             <PatientSummary
               patient={patient}
               onClickResource={(resource) =>
-                navigate(`/Patient/${patientId}/${resource.resourceType}/${resource.id}`)?.catch(console.error)
+                navigate(`/Patient/${patientId}/${resource.resourceType}/${resource.id}`)
               }
-              onRequestLabs={() => {
-                setIsLabsModalOpen(true);
-              }}
             />
           </ScrollArea>
         </div>

@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { ProfileResource, getReferenceString } from '@medplum/core';
 import {
   AppShell,
@@ -16,9 +18,6 @@ import {
   IconMail,
   IconMicroscope,
   IconRobot,
-  IconPencil,
-  IconTimeDuration0,
-  IconTransformPoint,
   IconUser,
   IconUsersGroup,
 } from '@tabler/icons-react';

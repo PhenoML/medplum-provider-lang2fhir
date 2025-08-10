@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { Box, Card, Flex, Stack, Text, TextInput } from '@mantine/core';
 import { ChargeItem } from '@medplum/fhirtypes';
 import ChargeItemPanel from './ChargeItemPanel';

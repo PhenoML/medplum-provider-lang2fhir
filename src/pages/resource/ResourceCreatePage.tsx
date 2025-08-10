@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { Stack, Text, Group, Button } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { createReference, normalizeErrorString, normalizeOperationOutcome } from '@medplum/core';
@@ -100,7 +102,10 @@ export function ResourceCreatePage(): JSX.Element {
 
   const handleLang2FHIRClick = (): void => {
     const basePath = patientId ? `/Patient/${patientId}/${resourceType}` : `/${resourceType}`;
-    navigate(`${basePath}/new/lang2fhir`);
+    const result = navigate(`${basePath}/new/lang2fhir`);
+    if (result instanceof Promise) {
+      result.catch(console.error);
+    }
   };
 
   if (loadingPatient) {

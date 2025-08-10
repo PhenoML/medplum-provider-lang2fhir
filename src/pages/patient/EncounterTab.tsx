@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { Group } from '@mantine/core';
 import { JSX } from 'react';
 import { SoapNote } from '../../components/soapnote/SoapNote';

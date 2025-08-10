@@ -1,11 +1,13 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { Stack, Text, Textarea, Button, Box, Space } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeErrorString, normalizeOperationOutcome } from '@medplum/core';
 import { OperationOutcome, Resource } from '@medplum/fhirtypes';
 import { Document, OperationOutcomeAlert, useMedplum } from '@medplum/react';
 import { IconCircleCheck, IconRobot, IconSparkles } from '@tabler/icons-react';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, JSX } from 'react';
+import { useNavigate } from 'react-router';
 import { PhenoMLBranding } from '../../components/PhenoMLBranding';
 
 export function CreateCohortPage(): JSX.Element {

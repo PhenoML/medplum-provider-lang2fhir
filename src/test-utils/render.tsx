@@ -1,4 +1,5 @@
-/* eslint-disable react-refresh/only-export-components */
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 // Sets up MantineProvider for all tests
 // See: https://mantine.dev/guides/vitest/
 

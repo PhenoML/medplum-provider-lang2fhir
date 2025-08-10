@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { Box, Button, Card, Flex, Group, Menu, Modal, Stack, Text, Textarea, Title } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { getReferenceString, HTTP_HL7_ORG } from '@medplum/core';

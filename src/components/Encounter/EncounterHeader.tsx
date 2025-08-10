@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { ActionIcon, Box, Button, Flex, Group, Menu, Paper, SegmentedControl, Stack, Text } from '@mantine/core';
 import { formatDate, formatHumanName } from '@medplum/core';
 import { Encounter, HumanName, Practitioner } from '@medplum/fhirtypes';

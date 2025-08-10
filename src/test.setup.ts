@@ -1,4 +1,5 @@
-// See: https://mantine.dev/guides/vitest/
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 
 import '@testing-library/jest-dom';
 

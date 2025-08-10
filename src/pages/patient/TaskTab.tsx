@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { Blockquote, Group, Paper, Stack, Tabs, Text, Title } from '@mantine/core';
 import { formatCodeableConcept, getDisplayString } from '@medplum/core';
 import { Annotation, Task } from '@medplum/fhirtypes';
