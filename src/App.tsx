@@ -16,19 +16,25 @@ import {
   IconMail,
   IconMicroscope,
   IconRobot,
+  IconPencil,
+  IconTimeDuration0,
+  IconTransformPoint,
   IconUser,
   IconUsersGroup,
 } from '@tabler/icons-react';
-import { Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { JSX, Suspense } from 'react';
+import { Navigate, Route, Routes } from 'react-router';
 import { ResourceCreatePage } from './pages/resource/ResourceCreatePage';
+import './index.css';
 import { HomePage } from './pages/HomePage';
-import { OnboardingPage } from './pages/OnboardingPage';
+import { IntegrationsPage } from './pages/IntegrationsPage';
+import { SchedulePage } from './pages/SchedulePage';
 import { SearchPage } from './pages/SearchPage';
 import { SignInPage } from './pages/SignInPage';
 import { EditTab } from './pages/patient/EditTab';
 import { EncounterChart } from './pages/encounter/EncounterChart';
 import { EncounterModal } from './pages/encounter/EncounterModal';
+import { IntakeFormPage } from './pages/patient/IntakeFormPage';
 import { PatientPage } from './pages/patient/PatientPage';
 import { PatientSearchPage } from './pages/patient/PatientSearchPage';
 import { TimelineTab } from './pages/patient/TimelineTab';
@@ -132,7 +138,10 @@ export function App(): JSX.Element | null {
                 <Route path="communication" element={<CommunicationTab />} />
                 <Route path="communication/:id" element={<CommunicationTab />} />
                 <Route path="clinicaltrials" element={<ClinicalTrialsTab />} />
-                <Route path="task/:id/*" element={<TaskTab />} />
+                <Route path="Task/:id">
+                  <Route index element={<TaskTab />} />
+                  <Route path="*" element={<TaskTab />} />
+                </Route>
                 <Route path="timeline" element={<TimelineTab />} />
                 <Route path=":resourceType" element={<PatientSearchPage />} />
                 <Route path=":resourceType/new" element={<ResourceCreatePage />} />
@@ -146,9 +155,14 @@ export function App(): JSX.Element | null {
                 </Route>
                 <Route path="" element={<TimelineTab />} />
               </Route>
-              <Route path="Task/:id/*" element={<TaskTab />} />
-              <Route path="/onboarding" element={<OnboardingPage />} />
+              <Route path="Task/:id">
+                <Route index element={<TaskTab />} />
+                <Route path="*" element={<TaskTab />} />
+              </Route>
+              <Route path="/onboarding" element={<IntakeFormPage />} />
+              <Route path="/schedule" element={<SchedulePage />} />
               <Route path="/signin" element={<SignInPage />} />
+              <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/:resourceType" element={<SearchPage />} />
               <Route path="/:resourceType/new" element={<ResourceCreatePage />} />
               <Route path=":resourceType/new/lang2fhir" element={<ResourceLang2FHIRCreatePage />} />
