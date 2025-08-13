@@ -38,7 +38,10 @@ export function UploadDataPage(): JSX.Element {
       );
 
       showSuccessNotification('File processed successfully');
-      navigate(`/${dataType}/${generatedResource.id}`);
+      const navResult = navigate(`/${dataType}/${generatedResource.id}`);
+      if (navResult) {
+        navResult.catch(console.error);
+      }
     } catch (error) {
       console.error('Upload process error:', error);
       setError(normalizeErrorString(error));

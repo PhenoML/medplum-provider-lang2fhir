@@ -46,7 +46,10 @@ export function CreateCohortPage(): JSX.Element {
         message: 'Cohort created successfully',
       });
       // Navigate to the newly created resource
-      navigate('/' + createdResource.resourceType + '/' + createdResource.id);
+      const navResult = navigate('/' + createdResource.resourceType + '/' + createdResource.id);
+      if (navResult) {
+        navResult.catch(console.error);
+      }
     } catch (err) {
       setOutcome(normalizeOperationOutcome(err));
       showNotification({

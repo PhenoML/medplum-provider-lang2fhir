@@ -178,7 +178,10 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
         ? prependPatientPath(patient, `/${createdResource.resourceType}/${createdResource.id}`)
         : `/${createdResource.resourceType}/${createdResource.id}`;
       
-      navigate(navigationPath);
+      const navResult = navigate(navigationPath);
+      if (navResult) {
+        navResult.catch(console.error);
+      }
     } catch (error) {
       setOutcome(normalizeOperationOutcome(error));
       showNotification({
