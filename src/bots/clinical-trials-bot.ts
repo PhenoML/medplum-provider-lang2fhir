@@ -681,12 +681,9 @@ export async function handler(
         reference: `Device/${geminiDevice.id}`,
         display: 'Gemini AI'
       },
-      output: [
+      note: [
         {
-          type: {
-            text: 'Clinical Trials Analysis Report'
-          },
-          valueString: clinicalFindings
+          text: clinicalFindings
         }
       ]
     };
