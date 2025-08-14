@@ -1,28 +1,28 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Box, Button, Card, Grid, Modal, Stack, Text, Textarea } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
-import { createReference, formatHumanName, getReferenceString, normalizeErrorString } from '@medplum/core';
-import { HumanName, Practitioner, Reference, Task } from '@medplum/fhirtypes';
-import { CodeInput, DateTimeInput, Loading, ResourceInput, useMedplum, useMedplumProfile } from '@medplum/react';
-import { IconCircleCheck, IconCircleOff } from '@tabler/icons-react';
-import { JSX, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
-import { usePatient } from '../../hooks/usePatient';
-import classes from './TaskDetails.module.css';
+import { Box, Flex, Paper, ScrollArea, SegmentedControl } from '@mantine/core';
+import { MedplumClient } from '@medplum/core';
+import { ResourceType, Task } from '@medplum/fhirtypes';
+import { PatientSummary, ResourceTimeline, useResource } from '@medplum/react';
+import { JSX, useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router';
+import { TaskProperties } from '../../components/tasks/TaskProperties';
+import { TasksInputNote } from '../../components/tasks/TaskInputNote';
+import { TaskSelectEmpty } from '../../components/tasks/TaskSelectEmpty';
+import classes from './TasksPage.module.css';
 
-export const TaskDetails = (): JSX.Element => {
-  const { patientId, encounterId, taskId } = useParams();
-  const patient = usePatient();
-  const medplum = useMedplum();
-  const navigate = useNavigate();
-  const author = useMedplumProfile();
-  const [task, setTask] = useState<Task | undefined>(undefined);
-  const [isOpened, setIsOpened] = useState(true);
-  const [practitioner, setPractitioner] = useState<Practitioner | undefined>();
-  const [dueDate, setDueDate] = useState<string | undefined>();
-  const [status, setStatus] = useState<Task['status'] | undefined>();
-  const [note, setNote] = useState<string>('');
+interface TasksOutletContext {
+  task: Task | undefined;
+  onTaskChange: (task: Task) => void;
+  onDeleteTask: (task: Task) => void;
+}
+
+export function TaskDetails(): JSX.Element {
+  const { task: contextTask, onTaskChange, onDeleteTask } = useOutletContext<TasksOutletContext>();
+  const [task, setTask] = useState<Task | undefined>(contextTask);
+  const selectedPatient = useResource(task?.for);
+  const [activeTab, setActiveTab] = useState<string>('properties');
+  const showRight = Boolean(task?.for && selectedPatient?.resourceType === 'Patient');
 
   useEffect(() => {
     setTask(contextTask);

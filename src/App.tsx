@@ -45,7 +45,6 @@ import { ResourceHistoryPage } from './pages/resource/ResourceHistoryPage';
 import { QuestionnairePreviewPage } from './pages/resource/QuestionnairePreviewPage';
 import { ResourcePage } from './pages/resource/ResourcePage';
 import { CommunicationTab } from './pages/patient/CommunicationTab';
-import { TaskTab } from './pages/patient/TaskTab';
 import { UploadDataPage } from './pages/UploadDataPage';
 import { SourceDocumentPage } from './pages/resource/SourceDocumentPage';
 import { ResourceLang2FHIRCreatePage } from './pages/resource/ResourceLang2FHIRCreatePage';

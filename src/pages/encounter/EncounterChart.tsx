@@ -1,20 +1,7 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Box, Button, Card, Flex, Group, Menu, Modal, Stack, Text, Textarea, Title } from '@mantine/core';
-import { showNotification } from '@mantine/notifications';
-import { getReferenceString, HTTP_HL7_ORG } from '@medplum/core';
-import {
-  ChargeItem,
-  Claim,
-  ClaimDiagnosis,
-  ClinicalImpression,
-  Condition,
-  Coverage,
-  Encounter,
-  Organization,
-  Practitioner,
-  Task,
-} from '@medplum/fhirtypes';
+import { Box, Card, Stack, Textarea, Title } from '@mantine/core';
+import { ClinicalImpression, Encounter, Task } from '@medplum/fhirtypes';
 import { Loading, useMedplum } from '@medplum/react';
 import { JSX, useCallback, useState } from 'react';
 import { Outlet, useParams } from 'react-router';
@@ -23,7 +10,7 @@ import { useEncounterChart } from '../../hooks/useEncounterChart';
 import { usePatient } from '../../hooks/usePatient';
 import { showErrorNotification } from '../../utils/notifications';
 import { updateEncounterStatus } from '../../utils/encounter';
-import { EncounterHeader } from '../../components/encounter/EncounterHeader';
+import { EncounterHeader } from '../../components/Encounter/EncounterHeader';
 import { TaskPanel } from '../../components/encountertasks/TaskPanel';
 import { useDebouncedUpdateResource } from '../../hooks/useDebouncedUpdateResource';
 import { BillingTab } from './BillingTab';
