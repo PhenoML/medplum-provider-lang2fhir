@@ -193,7 +193,7 @@ export function OrderLabsPage(props: OrderLabsPageProps): JSX.Element {
             />
             <Group>
               <Button onClick={submitOrder} loading={isSubmitting} disabled={isSubmitting}>
-                Submit Order to Health Gorilla
+                Submit Order
               </Button>
             </Group>
           </Stack>

@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { ProfileResource, getReferenceString } from '@medplum/core';
 import {
   AppShell,
@@ -48,9 +50,13 @@ import { UploadDataPage } from './pages/UploadDataPage';
 import { SourceDocumentPage } from './pages/resource/SourceDocumentPage';
 import { ResourceLang2FHIRCreatePage } from './pages/resource/ResourceLang2FHIRCreatePage';
 import { CreateCohortPage } from './pages/resource/CreateCohortPage';
+import { TaskDetailsModal } from './pages/tasks/TaskDetailsModal';
 import { TaskDetails } from './pages/tasks/TaskDetails';
 import { ClinicalTrialsTab } from './pages/patient/ClinicalTrialsTab';
 
+import { MessagesPage } from './pages/messages/MessagesPage';
+import { TasksPage } from './pages/tasks/TasksPage';
+import { TaskSelectEmpty } from './components/tasks/TaskSelectEmpty';
 
 export function App(): JSX.Element | null {
   const medplum = useMedplum();
@@ -76,6 +82,22 @@ export function App(): JSX.Element | null {
           ],
         },
         {
+          title: 'Communication',
+          links: [{ icon: <IconMail />, label: 'Messages', href: '/messages' }],
+        },
+        {
+          title: 'Communication',
+          links: [{ icon: <IconMail />, label: 'Messages', href: '/messages' }],
+        },
+        {
+          title: 'Tasks',
+          links: [{ icon: <IconClipboardCheck />, label: 'Tasks', href: '/Task' }],
+        },
+        {
+          title: 'Tasks',
+          links: [{ icon: <IconClipboardCheck />, label: 'Tasks', href: '/Task' }],
+        },
+        {
           title: 'Upload Forms',
           links: [
             { icon: <IconClipboardText />, label: 'Upload Questionnaire', href: '/upload/Questionnaire' },
@@ -95,18 +117,6 @@ export function App(): JSX.Element | null {
       notifications={
         profile && (
           <>
-            <NotificationIcon
-              label="Mail"
-              resourceType="Communication"
-              countCriteria={`recipient=${getReferenceString(profile as ProfileResource)}&status:not=completed&_summary=count`}
-              subscriptionCriteria={`Communication?recipient=${getReferenceString(profile as ProfileResource)}`}
-              iconComponent={<IconMail />}
-              onClick={() =>
-                navigate(
-                  `/Communication?recipient=${getReferenceString(profile as ProfileResource)}&status:not=completed&_fields=sender,recipient,subject,status,_lastUpdated`
-                )
-              }
-            />
             <NotificationIcon
               label="Tasks"
               resourceType="Task"
@@ -131,16 +141,12 @@ export function App(): JSX.Element | null {
               <Route path="/Patient/:patientId" element={<PatientPage />}>
               <Route path="Encounter/new" element={<EncounterModal />} />
                 <Route path="Encounter/:encounterId" element={<EncounterChart />}>
-                  <Route path="Task/:taskId" element={<TaskDetails />} />
+                  <Route path="Task/:taskId" element={<TaskDetailsModal />} />
                 </Route>
                 <Route path="edit" element={<EditTab />} />
                 <Route path="communication" element={<CommunicationTab />} />
                 <Route path="communication/:id" element={<CommunicationTab />} />
                 <Route path="clinicaltrials" element={<ClinicalTrialsTab />} />
-                <Route path="Task/:id">
-                  <Route index element={<TaskTab />} />
-                  <Route path="*" element={<TaskTab />} />
-                </Route>
                 <Route path="timeline" element={<TimelineTab />} />
                 <Route path=":resourceType" element={<PatientSearchPage />} />
                 <Route path=":resourceType/new" element={<ResourceCreatePage />} />
@@ -154,9 +160,10 @@ export function App(): JSX.Element | null {
                 </Route>
                 <Route path="" element={<TimelineTab />} />
               </Route>
-              <Route path="Task/:id">
-                <Route index element={<TaskTab />} />
-                <Route path="*" element={<TaskTab />} />
+              <Route path="/messages" element={<MessagesPage />} />
+              <Route path="/Task" element={<TasksPage />}>
+                <Route index element={<TaskSelectEmpty />} />
+                <Route path=":taskId" element={<TaskDetails />} />
               </Route>
               <Route path="/onboarding" element={<IntakeFormPage />} />
               <Route path="/schedule" element={<SchedulePage />} />

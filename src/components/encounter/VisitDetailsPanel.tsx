@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Card, Stack, Text } from '@mantine/core';
 import { getReferenceString } from '@medplum/core';
-import { CodeableConcept, Encounter, Practitioner } from '@medplum/fhirtypes';
-import { CodeableConceptInput, DateTimeInput, ResourceInput } from '@medplum/react';
+import { Encounter, Practitioner } from '@medplum/fhirtypes';
+import { DateTimeInput, ResourceInput } from '@medplum/react';
 import { JSX } from 'react';
 
 interface VisitDetailsPanelProps {
@@ -29,19 +29,6 @@ export const VisitDetailsPanel = (props: VisitDetailsPanelProps): JSX.Element =>
           },
         },
       ],
-    };
-
-    onEncounterChange(updatedEncounter);
-  };
-
-  const handleServiceTypeChange = async (serviceType: CodeableConcept | undefined): Promise<void> => {
-    if (!encounter || !serviceType) {
-      return;
-    }
-
-    const updatedEncounter = {
-      ...encounter,
-      serviceType: serviceType,
     };
 
     onEncounterChange(updatedEncounter);
@@ -104,15 +91,6 @@ export const VisitDetailsPanel = (props: VisitDetailsPanelProps): JSX.Element =>
             label="Check out"
             defaultValue={encounter.period?.end}
             onChange={handleCheckoutChange}
-          />
-
-          <CodeableConceptInput
-            name="serviceType"
-            label="Service Type"
-            defaultValue={encounter.serviceType}
-            onChange={handleServiceTypeChange}
-            binding="http://hl7.org/fhir/ValueSet/service-type"
-            path="serviceType"
           />
         </Stack>
       </Card>

@@ -55,7 +55,7 @@ export const TaskServiceRequest = (props: TaskServiceRequestProps): JSX.Element 
 
   return (
     <>
-      <Stack p="md">
+      <Stack p={0}>
         <Stack gap={0}>
           <Title>{displayText ? displayText : getDisplayString(serviceRequest)}</Title>
           {codeText && <Text>SNOMED: {codeText}</Text>}
@@ -73,7 +73,7 @@ export const TaskServiceRequest = (props: TaskServiceRequestProps): JSX.Element 
           </Stack>
         )}
 
-        {task.output?.length === 0 &&
+        {!diagnosticReport &&
           serviceRequest.code?.coding?.some(
             (coding) => coding.system === SNOMED_SYSTEM && coding.code === SNOMED_DIAGNOSTIC_REPORT_CODE
           ) && (
