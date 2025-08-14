@@ -132,7 +132,7 @@ export function ClinicalTrialsTab(): JSX.Element {
         <Text size="sm" c="dimmed" mb="md">
           Search for clinical trials that match this patient's profile using AI analysis. 
           The search will prioritize local trials but expand geographically to find the best matches.
-          Results will be sent as a communication to the practitioner.
+          Results will be sent as a task to the practitioner.
         </Text>
       </Card>
 
