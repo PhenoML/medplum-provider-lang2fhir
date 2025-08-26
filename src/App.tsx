@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { ProfileResource, getReferenceString } from '@medplum/core';
 import {
   AppShell,
@@ -14,20 +18,24 @@ import {
   IconClipboardText,
   IconForms,
   IconMail,
+  IconMicroscope,
   IconRobot,
   IconUser,
   IconUsersGroup,
 } from '@tabler/icons-react';
-import { Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { JSX, Suspense } from 'react';
+import { Navigate, Route, Routes } from 'react-router';
 import { ResourceCreatePage } from './pages/resource/ResourceCreatePage';
+import './index.css';
 import { HomePage } from './pages/HomePage';
-import { OnboardingPage } from './pages/OnboardingPage';
+import { IntegrationsPage } from './pages/IntegrationsPage';
+import { SchedulePage } from './pages/SchedulePage';
 import { SearchPage } from './pages/SearchPage';
 import { SignInPage } from './pages/SignInPage';
 import { EditTab } from './pages/patient/EditTab';
 import { EncounterChart } from './pages/encounter/EncounterChart';
 import { EncounterModal } from './pages/encounter/EncounterModal';
+import { IntakeFormPage } from './pages/patient/IntakeFormPage';
 import { PatientPage } from './pages/patient/PatientPage';
 import { PatientSearchPage } from './pages/patient/PatientSearchPage';
 import { TimelineTab } from './pages/patient/TimelineTab';
@@ -37,13 +45,17 @@ import { ResourceHistoryPage } from './pages/resource/ResourceHistoryPage';
 import { QuestionnairePreviewPage } from './pages/resource/QuestionnairePreviewPage';
 import { ResourcePage } from './pages/resource/ResourcePage';
 import { CommunicationTab } from './pages/patient/CommunicationTab';
-import { TaskTab } from './pages/patient/TaskTab';
 import { UploadDataPage } from './pages/UploadDataPage';
 import { SourceDocumentPage } from './pages/resource/SourceDocumentPage';
 import { ResourceLang2FHIRCreatePage } from './pages/resource/ResourceLang2FHIRCreatePage';
 import { CreateCohortPage } from './pages/resource/CreateCohortPage';
+import { TaskDetailsModal } from './pages/tasks/TaskDetailsModal';
 import { TaskDetails } from './pages/tasks/TaskDetails';
+import { ClinicalTrialsTab } from './pages/patient/ClinicalTrialsTab';
 
+import { MessagesPage } from './pages/messages/MessagesPage';
+import { TasksPage } from './pages/tasks/TasksPage';
+import { TaskSelectEmpty } from './components/tasks/TaskSelectEmpty';
 
 export function App(): JSX.Element | null {
   const medplum = useMedplum();
@@ -69,6 +81,14 @@ export function App(): JSX.Element | null {
           ],
         },
         {
+          title: 'Communication',
+          links: [{ icon: <IconMail />, label: 'Messages', href: '/messages' }],
+        },
+        {
+          title: 'Tasks',
+          links: [{ icon: <IconClipboardCheck />, label: 'Tasks', href: '/Task' }],
+        },
+        {
           title: 'Upload Forms',
           links: [
             { icon: <IconClipboardText />, label: 'Upload Questionnaire', href: '/upload/Questionnaire' },
@@ -80,6 +100,7 @@ export function App(): JSX.Element | null {
           links: [
             { icon: <IconUsersGroup />, label: 'Create Cohort', href: '/create-cohort' },
             { icon: <IconChecklist />, label: 'Create Plan Definition', href: '/PlanDefinition/new' },
+            { icon: <IconMicroscope />, label: 'Create Research Study', href: '/ResearchStudy/new' },
           ],
         },     
       ]}
@@ -87,18 +108,6 @@ export function App(): JSX.Element | null {
       notifications={
         profile && (
           <>
-            <NotificationIcon
-              label="Mail"
-              resourceType="Communication"
-              countCriteria={`recipient=${getReferenceString(profile as ProfileResource)}&status:not=completed&_summary=count`}
-              subscriptionCriteria={`Communication?recipient=${getReferenceString(profile as ProfileResource)}`}
-              iconComponent={<IconMail />}
-              onClick={() =>
-                navigate(
-                  `/Communication?recipient=${getReferenceString(profile as ProfileResource)}&status:not=completed&_fields=sender,recipient,subject,status,_lastUpdated`
-                )
-              }
-            />
             <NotificationIcon
               label="Tasks"
               resourceType="Task"
@@ -123,12 +132,12 @@ export function App(): JSX.Element | null {
               <Route path="/Patient/:patientId" element={<PatientPage />}>
               <Route path="Encounter/new" element={<EncounterModal />} />
                 <Route path="Encounter/:encounterId" element={<EncounterChart />}>
-                  <Route path="Task/:taskId" element={<TaskDetails />} />
+                  <Route path="Task/:taskId" element={<TaskDetailsModal />} />
                 </Route>
                 <Route path="edit" element={<EditTab />} />
                 <Route path="communication" element={<CommunicationTab />} />
                 <Route path="communication/:id" element={<CommunicationTab />} />
-                <Route path="task/:id/*" element={<TaskTab />} />
+                <Route path="clinicaltrials" element={<ClinicalTrialsTab />} />
                 <Route path="timeline" element={<TimelineTab />} />
                 <Route path=":resourceType" element={<PatientSearchPage />} />
                 <Route path=":resourceType/new" element={<ResourceCreatePage />} />
@@ -142,9 +151,15 @@ export function App(): JSX.Element | null {
                 </Route>
                 <Route path="" element={<TimelineTab />} />
               </Route>
-              <Route path="Task/:id/*" element={<TaskTab />} />
-              <Route path="/onboarding" element={<OnboardingPage />} />
+              <Route path="/messages" element={<MessagesPage />} />
+              <Route path="/Task" element={<TasksPage />}>
+                <Route index element={<TaskSelectEmpty />} />
+                <Route path=":taskId" element={<TaskDetails />} />
+              </Route>
+              <Route path="/onboarding" element={<IntakeFormPage />} />
+              <Route path="/schedule" element={<SchedulePage />} />
               <Route path="/signin" element={<SignInPage />} />
+              <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/:resourceType" element={<SearchPage />} />
               <Route path="/:resourceType/new" element={<ResourceCreatePage />} />
               <Route path=":resourceType/new/lang2fhir" element={<ResourceLang2FHIRCreatePage />} />

@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { ContentType } from '@medplum/core';
 import { Bot, Bundle, BundleEntry, Subscription } from '@medplum/fhirtypes';
 import fs from 'fs';
@@ -21,6 +23,10 @@ const Bots: BotDescription[] = [
   {
     src: 'src/bots/phenoml-cohort.ts',
     dist: 'dist/phenoml-cohort.js',
+  }, 
+  {
+    src: 'src/bots/clinical-trials-bot.ts',
+    dist: 'dist/clinical-trials-bot.js',
   }
 ];
 
@@ -46,6 +52,7 @@ async function main(): Promise<void> {
           id: botIdPlaceholder,
           name: botName,
           runtimeVersion: 'awslambda',//IMPORTANT: USE awslambda for production as per: https://www.medplum.com/docs/bots/running-bots-locally. Use vmcontext to run locally.
+          timeout: 60,
           sourceCode: {
             contentType: ContentType.TYPESCRIPT,
             url: srcEntry.fullUrl,

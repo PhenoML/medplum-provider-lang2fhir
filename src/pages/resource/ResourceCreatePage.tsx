@@ -1,14 +1,16 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { Stack, Text, Group, Button } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { createReference, normalizeErrorString, normalizeOperationOutcome } from '@medplum/core';
 import { OperationOutcome, Patient, Resource, ResourceType } from '@medplum/fhirtypes';
 import { Document, Loading, useMedplum } from '@medplum/react';
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { JSX, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
+import { ResourceFormWithRequiredProfile } from '../../components/ResourceFormWithRequiredProfile';
 import { IconSparkles } from '@tabler/icons-react';
 import { usePatient } from '../../hooks/usePatient';
 import { prependPatientPath } from '../patient/PatientPage.utils';
-import { ResourceFormWithRequiredProfile } from '../../components/ResourceFormWithRequiredProfile';
 import { RESOURCE_PROFILE_URLS } from './utils';
 
 const PatientReferencesElements: Partial<Record<ResourceType, string[]>> = {
@@ -51,7 +53,8 @@ const LANG2FHIR_SUPPORTED_TYPES = [
   'MedicationRequest',
   'CarePlan',
   'PlanDefinition',
-  'Questionnaire'
+  'Questionnaire',
+  'ResearchStudy'
 ] as const;
 
 type Lang2FHIRSupportedType = typeof LANG2FHIR_SUPPORTED_TYPES[number];
@@ -99,7 +102,10 @@ export function ResourceCreatePage(): JSX.Element {
 
   const handleLang2FHIRClick = (): void => {
     const basePath = patientId ? `/Patient/${patientId}/${resourceType}` : `/${resourceType}`;
-    navigate(`${basePath}/new/lang2fhir`);
+    const result = navigate(`${basePath}/new/lang2fhir`);
+    if (result instanceof Promise) {
+      result.catch(console.error);
+    }
   };
 
   if (loadingPatient) {

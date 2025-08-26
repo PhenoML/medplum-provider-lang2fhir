@@ -1,158 +1,145 @@
-import { Button, Text, Stack, Group, Box, Select } from '@mantine/core';
-import { Encounter, QuestionnaireResponse, Task } from '@medplum/fhirtypes';
-import { CodeInput, ResourceInput, useMedplum } from '@medplum/react';
-import { Outlet, useLocation, useParams } from 'react-router-dom';
-import { useCallback, useEffect, useState } from 'react';
-import { showNotification } from '@mantine/notifications';
-import { getReferenceString, normalizeErrorString } from '@medplum/core';
-import { IconCircleOff } from '@tabler/icons-react';
-import { AddPlanDefinition } from '../components/AddPlanDefinitions/AddPlanDefinition';
-import { TaskPanel } from '../components/Task/TaskPanel';
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
+import { Box, Card, Stack, Textarea, Title } from '@mantine/core';
+import { ClinicalImpression, Encounter, Task } from '@medplum/fhirtypes';
+import { Loading, useMedplum } from '@medplum/react';
+import { JSX, useCallback, useState } from 'react';
+import { Outlet, useParams } from 'react-router';
+import { SAVE_TIMEOUT_MS } from '../../config/constants';
+import { useEncounterChart } from '../../hooks/useEncounterChart';
+import { usePatient } from '../../hooks/usePatient';
+import { showErrorNotification } from '../../utils/notifications';
+import { updateEncounterStatus } from '../../utils/encounter';
+import { EncounterHeader } from '../../components/Encounter/EncounterHeader';
+import { TaskPanel } from '../../components/encountertasks/TaskPanel';
+import { useDebouncedUpdateResource } from '../../hooks/useDebouncedUpdateResource';
+import { BillingTab } from './BillingTab';
 
 export const EncounterChart = (): JSX.Element => {
   const { patientId, encounterId } = useParams();
   const medplum = useMedplum();
-  const [encounter, setEncounter] = useState<Encounter | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [status, setStatus] = useState<Task['status'] | undefined>();
-  const location = useLocation();
-
-  const fetchTasks = useCallback(async (): Promise<void> => {
-    const encounterResult = await medplum.readResource('Encounter', encounterId as string);
-    setEncounter(encounterResult);
-    console.log(encounterResult);
-    setStatus(encounterResult.status as typeof status);
-
-    const taskResult = await medplum.searchResources('Task', `encounter=Encounter/${encounterId}`, {
-      cache: 'no-cache',
-    });
-
-    taskResult.sort((a: Task, b: Task) => {
-      const dateA = new Date(a.authoredOn || '').getTime();
-      const dateB = new Date(b.authoredOn || '').getTime();
-      return dateA - dateB;
-    });
-
-    setTasks(taskResult);
-  }, [medplum, encounterId]);
-
-  useEffect(() => {
-    fetchTasks().catch((err) => {
-      showNotification({
-        color: 'red',
-        icon: <IconCircleOff />,
-        title: 'Error',
-        message: normalizeErrorString(err),
-      });
-    });
-  }, [medplum, encounterId, fetchTasks, location.pathname]);
+  const patient = usePatient();
+  const [activeTab, setActiveTab] = useState<string>('notes');
+  const {
+    encounter,
+    claim,
+    practitioner,
+    tasks,
+    clinicalImpression,
+    chargeItems,
+    appointment,
+    setEncounter,
+    setClaim,
+    setPractitioner,
+    setTasks,
+    setChargeItems,
+  } = useEncounterChart(patientId, encounterId);
+  const [chartNote, setChartNote] = useState<string | undefined>(clinicalImpression?.note?.[0]?.text);
+  const debouncedUpdateResource = useDebouncedUpdateResource(medplum, SAVE_TIMEOUT_MS);
 
   const updateTaskList = useCallback(
     (updatedTask: Task): void => {
       setTasks(tasks.map((task) => (task.id === updatedTask.id ? updatedTask : task)));
     },
-    [tasks]
+    [tasks, setTasks]
   );
 
-  const handleSaveChanges = useCallback(
-    async (task: Task, questionnaireResponse: QuestionnaireResponse): Promise<void> => {
+  const handleEncounterStatusChange = useCallback(
+    async (newStatus: Encounter['status']): Promise<void> => {
+      if (!encounter) {
+        return;
+      }
       try {
-        const response = await medplum.createResource<QuestionnaireResponse>(questionnaireResponse);
-        const updatedTask = await medplum.updateResource<Task>({
-          ...task,
-          output: [
-            {
-              type: {
-                text: 'QuestionnaireResponse',
-              },
-              valueReference: {
-                reference: getReferenceString(response),
-              },
-            },
-          ],
-        });
-        updateTaskList(updatedTask);
+        const updatedEncounter = await updateEncounterStatus(medplum, encounter, appointment, newStatus);
+        setEncounter(updatedEncounter);
       } catch (err) {
-        showNotification({
-          color: 'red',
-          icon: <IconCircleOff />,
-          title: 'Error',
-          message: normalizeErrorString(err),
-        });
+        showErrorNotification(err);
       }
     },
-    [medplum, updateTaskList]
+    [encounter, medplum, setEncounter, appointment]
   );
+
+  const handleTabChange = (tab: string): void => {
+    setActiveTab(tab);
+  };
+
+  const handleChartNoteChange = async (e: React.ChangeEvent<HTMLTextAreaElement>): Promise<void> => {
+    setChartNote(e.target.value);
+
+    if (!clinicalImpression) {
+      return;
+    }
+
+    try {
+      if (!e.target.value || e.target.value === '') {
+        const { note: _, ...restOfClinicalImpression } = clinicalImpression;
+        const updatedClinicalImpression: ClinicalImpression = restOfClinicalImpression;
+        await debouncedUpdateResource(updatedClinicalImpression);
+      } else {
+        const updatedClinicalImpression: ClinicalImpression = {
+          ...clinicalImpression,
+          note: [{ text: e.target.value }],
+        };
+        await debouncedUpdateResource(updatedClinicalImpression);
+      }
+    } catch (err) {
+      showErrorNotification(err);
+    }
+  };
+
+  if (!patient || !encounter) {
+    return <Loading />;
+  }
 
   return (
     <>
-      <Box p="md">
-        <Text size="lg" color="dimmed" mb="lg">
-          Encounter {encounter?.period?.start ?? ''}
-        </Text>
+      <Stack justify="space-between" gap={0}>
+        <EncounterHeader
+          encounter={encounter}
+          practitioner={practitioner}
+          onStatusChange={handleEncounterStatusChange}
+          onTabChange={handleTabChange}
+        />
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '24px' }}>
-          <Stack gap="md">
+        <Box p="md">
+          {activeTab === 'notes' && (
             <Stack gap="md">
-              {tasks?.map((task: Task) => (
-                <TaskPanel
-                  key={task.id}
-                  task={task}
-                  onSaveQuestionnaire={handleSaveChanges}
-                  onCompleteTask={updateTaskList}
-                />
+              {clinicalImpression && (
+                <Card withBorder shadow="sm" mt="md">
+                  <Title>Fill chart note</Title>
+                  <Textarea
+                    defaultValue={clinicalImpression.note?.[0]?.text}
+                    value={chartNote}
+                    onChange={handleChartNoteChange}
+                    autosize
+                    minRows={4}
+                    maxRows={8}
+                  />
+                </Card>
+              )}
+
+              {tasks.map((task: Task) => (
+                <TaskPanel key={task.id} task={task} onUpdateTask={updateTaskList} />
               ))}
             </Stack>
-          </Stack>
+          )}
 
-          <Stack gap="lg">
-            {encounterId && patientId && (
-              <AddPlanDefinition encounterId={encounterId} patientId={patientId} onApply={fetchTasks} />
-            )}
-
-            <Stack gap="md">
-              <div>
-                <CodeInput
-                  name="status"
-                  label="Status"
-                  binding="http://hl7.org/fhir/ValueSet/encounter-status|4.0.1"
-                  maxValues={1}
-                  defaultValue={status}
-                  onChange={(value) => {
-                    if (value) {
-                      setStatus(value as typeof status);
-                    }
-                  }}
-                />
-              </div>
-
-              <div>
-                <ResourceInput name="practitioner" resourceType="Practitioner" label="Assigned practitioner" />
-              </div>
-
-              <div>
-                <Text fw={500} mb="xs">
-                  Encounter Time
-                </Text>
-                <Select placeholder="1 hour" data={['30 minutes', '1 hour', '2 hours']} />
-              </div>
-
-              <Stack gap="md">
-                <Button fullWidth>Save changes</Button>
-
-                <Group gap="sm">
-                  <Button variant="light" color="gray" fullWidth>
-                    Mark as finished
-                  </Button>
-                </Group>
-
-                <Text size="sm">Complete all the tasks in encounter before finishing it</Text>
-              </Stack>
-            </Stack>
-          </Stack>
-        </div>
-        <Outlet />
-      </Box>
+          {activeTab === 'details' && (
+            <BillingTab
+              encounter={encounter}
+              setEncounter={setEncounter}
+              claim={claim}
+              patient={patient}
+              practitioner={practitioner}
+              setPractitioner={setPractitioner}
+              chargeItems={chargeItems}
+              setChargeItems={setChargeItems}
+              setClaim={setClaim}
+            />
+          )}
+        </Box>
+      </Stack>
+      <Outlet />
     </>
   );
 };

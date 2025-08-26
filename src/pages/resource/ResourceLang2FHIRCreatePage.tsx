@@ -1,11 +1,13 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import 'regenerator-runtime/runtime';
 import { Stack, Text, Textarea, Button, Box, Space, ActionIcon, Group } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeErrorString, normalizeOperationOutcome } from '@medplum/core';
 import { OperationOutcome, Resource, ResourceType } from '@medplum/fhirtypes';
 import { Document, Loading, OperationOutcomeAlert, useMedplum } from '@medplum/react';
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useEffect, useRef, JSX } from 'react';
+import { useNavigate, useParams } from 'react-router';
 import { usePatient } from '../../hooks/usePatient';
 import { prependPatientPath } from '../patient/PatientPage.utils';
 import { PhenoMLBranding } from '../../components/PhenoMLBranding';
@@ -14,7 +16,7 @@ import { env, pipeline } from '@huggingface/transformers';
 
 
 // Define which resource types don't require a patient
-const PATIENT_INDEPENDENT_RESOURCES = ['PlanDefinition', 'Questionnaire'] as const;
+const PATIENT_INDEPENDENT_RESOURCES = ['PlanDefinition', 'Questionnaire', 'ResearchStudy'] as const;
 type PatientIndependentResource = typeof PATIENT_INDEPENDENT_RESOURCES[number];
 
 env.allowLocalModels = false;
@@ -176,7 +178,10 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
         ? prependPatientPath(patient, `/${createdResource.resourceType}/${createdResource.id}`)
         : `/${createdResource.resourceType}/${createdResource.id}`;
       
-      navigate(navigationPath);
+      const navResult = navigate(navigationPath);
+      if (navResult) {
+        navResult.catch(console.error);
+      }
     } catch (error) {
       setOutcome(normalizeOperationOutcome(error));
       showNotification({

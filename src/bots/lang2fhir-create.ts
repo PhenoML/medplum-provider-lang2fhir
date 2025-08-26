@@ -1,5 +1,7 @@
+// SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
+// SPDX-License-Identifier: Apache-2.0
 import { BotEvent, MedplumClient } from '@medplum/core';
-import { QuestionnaireResponse, Observation, Procedure, Condition, Patient, MedicationRequest, CarePlan, PlanDefinition, Questionnaire } from '@medplum/fhirtypes';
+import { QuestionnaireResponse, Observation, Procedure, Condition, Patient, MedicationRequest, CarePlan, PlanDefinition, Questionnaire, ResearchStudy } from '@medplum/fhirtypes';
 import { Buffer } from 'buffer';
 
 /**
@@ -23,13 +25,13 @@ interface CreateRequest {
 
 interface CreateBotInput {
   text: string;
-  resourceType: 'QuestionnaireResponse' | 'Observation' | 'Procedure' | 'Condition' | 'MedicationRequest' | 'CarePlan' | 'PlanDefinition' | 'Questionnaire';
+  resourceType: 'QuestionnaireResponse' | 'Observation' | 'Procedure' | 'Condition' | 'MedicationRequest' | 'CarePlan' | 'PlanDefinition' | 'Questionnaire' | 'ResearchStudy';
   patient?: Patient;
 }
 
-type AllowedResourceTypes = QuestionnaireResponse | Observation | Procedure | Condition | MedicationRequest | CarePlan | PlanDefinition | Questionnaire;
+type AllowedResourceTypes = QuestionnaireResponse | Observation | Procedure | Condition | MedicationRequest | CarePlan | PlanDefinition | Questionnaire | ResearchStudy;
 
-const PATIENT_INDEPENDENT_RESOURCES = ['PlanDefinition', 'Questionnaire'] as const;
+const PATIENT_INDEPENDENT_RESOURCES = ['PlanDefinition', 'Questionnaire', 'ResearchStudy'] as const;
 const PHENOML_API_URL = "https://experiment.app.pheno.ml";
 
 export async function handler(
@@ -53,7 +55,7 @@ export async function handler(
     }
 
     // Limited set of resource types
-    if (!['Questionnaire', 'QuestionnaireResponse', 'Observation', 'Procedure', 'Condition', 'MedicationRequest', 'CarePlan', 'PlanDefinition'].includes(inputResourceType)) {
+    if (!['Questionnaire', 'QuestionnaireResponse', 'Observation', 'Procedure', 'Condition', 'MedicationRequest', 'CarePlan', 'PlanDefinition', 'ResearchStudy'].includes(inputResourceType)) {
       throw new Error(`Unsupported resource type: ${inputResourceType}`);
     }
 

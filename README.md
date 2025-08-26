@@ -5,25 +5,31 @@
   </a>
 </p>
 
-This example app is a fork of the [Medplum Charting Demo](https://github.com/medplum/medplum-provider) with PhenoML's [Lang2FHIR](https://developer.pheno.ml/reference/post_lang2fhir-create) integration showcasing an AI powered charting experience.
+This example app is a fork of the [Medplum Charting Demo](https://github.com/medplum/medplum-provider) with PhenoML's APIs [Lang2FHIR](https://developer.pheno.ml/reference/post_lang2fhir-create) integration showcasing an AI powered charting experience.
 
 ### :robot: AI use cases powered by Lang2FHIR in this demo application
+
+- *new* search for Clinical Trials using Gemini
+- *new* generate a Research Study using language
 
 - Upload pdfs and images and convert them to FHIR Questionnaire and QuestionnaireResponse resources
 - Describe plan definitions, medication requests, and care plans in natural language and have them converted to FHIR resources
 - AI medical scribe in the browser (using [Hugging Face's Transformers.js](https://huggingface.co/docs/transformers.js/en/index) with whisper-tiny model) to convert audio to FHIR resources
 - Describe a patient cohort in language and generate a FHIR Group resource
 
-### :video_camera: Demo Video
+### :video_camera: Demo Videos
 
-[![YouTube](http://i.ytimg.com/vi/q0bikQTw36c/hqdefault.jpg)](https://www.youtube.com/watch?v=q0bikQTw36c)
+[Updated Demo](https://www.youtube.com/watch?v=QXv3axkLbTE)
+
+[Original Demo](https://www.youtube.com/watch?v=q0bikQTw36c)
+
 
 ### :gear: Getting Started
 
 PhenoML Auth Token:
-Follow instructions here to get started with PhenoML's Lang2FHIR, you'll need to create an account and get your credentials(free trial and no credit card required to sign up for an Experiment plan): [PhenoML Developer Docs](https://developer.pheno.ml/docs/getting-started), [PhenoML Plans](https://www.phenoml.com/plans)
+Follow instructions here to get started with PhenoML's Lang2FHIR, you'll need to create an account and get your credentials: [PhenoML Developer Docs](https://developer.pheno.ml/docs/getting-started), [PhenoML Plans](https://www.phenoml.com/pricing)
 
-This app uses PhenoML's Lang2FHIR API, which requires the auth token from your PhenoML account. Authentication is handled by bots, but the necessary secrets must be set up in your Medplum project. Importantly, PhenoML's Experiment and Develop plans are for non-production/non PHI use, you'll need to be on a Launch plan to use lang2FHIR for production/PHI usage.
+This app uses PhenoML's Lang2FHIR API, which requires the auth token from your PhenoML account. Authentication is handled by bots, but the necessary secrets must be set up in your Medplum project. Importantly, PhenoML's Experiment plan is for non-production/non PHI use, you'll need to be on a Core plan to use lang2FHIR for production/PHI usage.
 
 Your credentials can be accessed in your PhenoML account by signing in to the [PhenoMLDeveloper Portal](https://developer.pheno.ml) with your email to generate a one-time link. Navigate to [Getting Started](https://developer.pheno.ml/reference/getting-started#/) and copy the credentials populated. If your credentials aren't populated and you have signed up for a plan please contact support: [support@phenoml.com](mailto:support@phenoml.com)
 
