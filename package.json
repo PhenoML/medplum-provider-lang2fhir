@@ -35,6 +35,7 @@
     "@medplum/dosespot-react": "4.3.10",
     "@medplum/eslint-config": "4.3.10",
     "@medplum/fhirtypes": "4.3.10",
+    "@medplum/mock": "4.3.10",
     "@medplum/react": "4.3.10",
     "@medplum/health-gorilla-core": "4.3.10",
     "@medplum/health-gorilla-react": "4.3.10",
