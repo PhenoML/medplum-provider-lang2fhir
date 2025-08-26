@@ -47,7 +47,7 @@ export async function handler(medplum: MedplumClient, event: BotEvent<CohortBotI
 
   const cohortResponse = await submitCohortRequest(event.input, credentials);
 
-  const result = await createCohortGroup(medplum, cohortResponse);
+  const result = await createCohortGroup(medplum, cohortResponse, event.input.text);
 
   return result;
 }
@@ -75,7 +75,7 @@ async function submitCohortRequest(cohortRequestText: any, credentials:string): 
     throw new Error('No token received from auth response');
   }
   
-  const cohortResponse = await fetch(PHENOML_API_URL + '/construe/cohort', {
+  const cohortResponse = await fetch(PHENOML_API_URL + '/cohort', {
     method: "POST",
     body: JSON.stringify(cohortRequestText), 
     headers: { Authorization: `Bearer ${bearerToken}`, "Content-Type": "application/json" },
@@ -85,17 +85,32 @@ async function submitCohortRequest(cohortRequestText: any, credentials:string): 
     throw new Error(`Failed to fetch cohort queries: ${cohortResponse.statusText}`);
   }
 
-  const cohortResult = await cohortResponse.json();
+  const cohortResult = await cohortResponse.json() as any;
+
+  // Validate response structure
+  if (!cohortResult.success) {
+    throw new Error(`PhenoML API returned failure: ${cohortResult.message || 'Unknown error'}`);
+  }
+
+  if (!cohortResult.queries || !Array.isArray(cohortResult.queries)) {
+    throw new Error(`Invalid response from PhenoML API: missing or invalid queries array`);
+  }
+
+  console.log(`Successfully received ${cohortResult.queries.length} queries from PhenoML API`);
 
   return cohortResult as CohortOutput;
 }
 
 // Creates a FHIR Group resource containing the cohort patients.
-async function createCohortGroup(medplum: MedplumClient, cohortOutput: CohortOutput): Promise<Group> {
+async function createCohortGroup(medplum: MedplumClient, cohortOutput: CohortOutput, originalSearchText: string): Promise<Group> {
+  console.log(`Received cohort output: ${JSON.stringify(cohortOutput, null, 2)}`);
+  console.log(`Original search text: "${originalSearchText}"`);
+  
   let currentPatientIds: string[] = [];
   const extensions = [];
 
   for (const query of cohortOutput.queries) {
+    console.log(`Processing query: ${JSON.stringify(query, null, 2)}`);
     const patientIds = await executeQuery(medplum, query);
     
     if (currentPatientIds.length === 0) {
@@ -106,12 +121,12 @@ async function createCohortGroup(medplum: MedplumClient, cohortOutput: CohortOut
 
     // If you want to add extensions to the group resource for traceability purposes, you can do so here. 
     const extensionElements = [
-      { url: "query", valueString: query.searchParams },
+      { url: "query", valueString: query.search_params },
       { url: "exclude", valueBoolean: query.exclude },
     ]
     
-    if (query.rationale) {
-      extensionElements.push({ url: "rationale", valueString: query.rationale });
+    if (query.concept) {
+      extensionElements.push({ url: "concept", valueString: query.concept });
     }
     
     extensions.push({
@@ -128,14 +143,18 @@ async function createCohortGroup(medplum: MedplumClient, cohortOutput: CohortOut
     entity: { reference: `Patient/${id}` }
   }));
 
-  // Set the identifier for the group to be the cohort description
-  const identifierValue = (cohortOutput.cohortDescription || 'Cohort Group').replace(/\s+/g, '-');
+  // Set the identifier for the group to be the original search text
+  const groupName = originalSearchText?.trim() || 'Cohort Group';
+  const identifierValue = groupName.replace(/\s+/g, '-');
   const identifier = {value: identifierValue};
+
+  console.log(`Creating group with name: "${groupName}"`);
+  console.log(`Group identifier: "${identifierValue}"`);
 
   // Create the group resource with extensions for traceability purposes if desired. 
   const createdGroup = await medplum.createResource({
     resourceType: "Group",
-    name: cohortOutput.cohortDescription || "Cohort Group",
+    name: groupName,
     active: false,
     type: "person",
     actual: true,
@@ -154,13 +173,43 @@ async function createCohortGroup(medplum: MedplumClient, cohortOutput: CohortOut
 
 // Executes a single FHIR query with pagination and extracts patient IDs.
 async function executeQuery(medplum: MedplumClient,queryConfig: Query): Promise<string[]> {
-  const { resource, searchParams } = queryConfig;
+  const { resource_type, search_params } = queryConfig;
+  
+  // Validate that resource type is provided
+  if (!resource_type) {
+    throw new Error(`No resource type specified in query: ${JSON.stringify(queryConfig)}`);
+  }
+  
+  // Validate that it's a valid ResourceType
+  if (typeof resource_type !== 'string') {
+    throw new Error(`Invalid resource type (not a string): ${JSON.stringify(resource_type)}`);
+  }
+  
+  // Additional validation for empty/whitespace resource type
+  if (resource_type.trim() === '') {
+    throw new Error(`Empty resource type specified in query: ${JSON.stringify(queryConfig)}`);
+  }
+  
+  console.log(`Executing query for resource type: "${resource_type}", search_params: "${search_params}"`);
+  console.log(`Query config object:`, JSON.stringify(queryConfig, null, 2));
+  
   const patientIds: string[] = [];
 
-  for await (const page of medplum.searchResourcePages(resource, searchParams)) {
-    const extractedIds = extractPatientIds(page);
+  try {
+    console.log(`Searching for ${resource_type} with params: "${search_params}"`);
+    
+    // Use searchResources like other parts of the codebase
+    const resources = await medplum.searchResources(resource_type as ResourceType, search_params || '');
+    
+    console.log(`Found ${resources.length} ${resource_type} resources`);
+    
+    const extractedIds = extractPatientIds(resources);
     patientIds.push(...extractedIds.map((data) => data.patientId));
+  } catch (error: any) {
+    console.error(`Error in searchResources for ${resource_type}:`, error);
+    throw new Error(`Failed to execute search for ${resource_type}: ${error.message}`);
   }
+  
   return patientIds;
 }
 
@@ -190,14 +239,14 @@ function performSetOperation(exclude: boolean,setA: string[],setB: string[]): st
 }
 
 interface Query {
-  resource: ResourceType;
-  searchParams: string; // FHIR search parameters (e.g., "gender=female&birthdate=lt2000")
+  resource_type: ResourceType;
+  search_params: string; // FHIR search parameters (e.g., "gender=female&birthdate=lt2000")
   exclude: boolean; // If true, exclude patients from the cohort
-  rationale: string; // AI Rationale for the query
+  concept: string; // The concept this query represents
 }
 
 interface CohortOutput {
+  success: boolean;
+  message: string;
   queries: Query[]; // Array of FHIR queries to execute
-  sql: string; // SQL representation (for reference)
-  cohortDescription: string;
 }
