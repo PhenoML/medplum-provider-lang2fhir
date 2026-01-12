@@ -23,11 +23,15 @@ const Bots: BotDescription[] = [
   {
     src: 'src/bots/phenoml-cohort.ts',
     dist: 'dist/phenoml-cohort.js',
-  }, 
+  },
   {
     src: 'src/bots/clinical-trials-bot.ts',
     dist: 'dist/clinical-trials-bot.js',
-  }
+  },
+  {
+    src: 'src/bots/phenoml-workflow.ts',
+    dist: 'dist/phenoml-workflow.js',
+  },
 ];
 
 async function main(): Promise<void> {
