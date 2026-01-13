@@ -32,6 +32,10 @@ const Bots: BotDescription[] = [
     src: 'src/bots/phenoml-workflow.ts',
     dist: 'dist/phenoml-workflow.js',
   },
+  {
+    src: 'src/bots/phenoml-ips-summary.ts',
+    dist: 'dist/phenoml-ips-summary.js',
+  },
 ];
 
 async function main(): Promise<void> {
