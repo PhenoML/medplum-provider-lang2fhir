@@ -91,7 +91,7 @@ export async function handler(
     const client = new PhenoMLClient({
       username: email,
       password,
-      baseUrl: 'https://experiment.app.pheno.ml',
+      baseUrl: 'http://localhost:8090',  // Local PhenoML server
     });
 
     // Generate IPS summary

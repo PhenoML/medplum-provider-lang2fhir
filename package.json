@@ -28,12 +28,10 @@
     ]
   },
   "devDependencies": {
-    "@medplum/bot-layer": "4.3.10",
-    "esbuild": "^0.24.0",
-    "fast-glob": "^3.3.2",
     "@mantine/core": "7.17.8",
     "@mantine/hooks": "7.17.8",
     "@mantine/notifications": "7.17.8",
+    "@medplum/bot-layer": "4.3.10",
     "@medplum/core": "4.3.10",
     "@medplum/dosespot-react": "4.3.10",
     "@medplum/eslint-config": "4.3.10",
@@ -53,16 +51,18 @@
     "@types/react-dom": "19.1.7",
     "@vitejs/plugin-react": "5.0.0",
     "dayjs": "1.11.13",
+    "esbuild": "^0.27.2",
+    "fast-glob": "^3.3.2",
     "jsdom": "26.1.0",
     "postcss": "8.5.6",
     "postcss-preset-mantine": "1.18.0",
     "react": "19.1.1",
     "react-big-calendar": "1.19.4",
     "react-dom": "19.1.1",
-    "react-router": "7.8.0",
+    "react-router": "^7.12.0",
     "ts-node": "^10.9.2",
     "typescript": "5.8.3",
-    "vite": "7.1.1",
+    "vite": "^7.3.1",
     "vitest": "3.2.4"
   },
   "packageManager": "npm@10.9.3",
@@ -71,6 +71,7 @@
   },
   "dependencies": {
     "@huggingface/transformers": "^3.7.1",
-    "phenoml": "^0.0.20"
+    "phenoml": "^0.0.20",
+    "regenerator-runtime": "^0.14.1"
   }
 }

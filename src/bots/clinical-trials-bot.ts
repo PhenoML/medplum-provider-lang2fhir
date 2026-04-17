@@ -488,7 +488,7 @@ ${JSON.stringify(simplifiedTrials, null, 2)}`
     // Extract the function call result
     const functionCall = result.candidates?.[0]?.content?.parts?.[0]?.functionCall;
     
-    if (!functionCall || functionCall.name !== 'analyze_clinical_trials') {
+    if (functionCall?.name !== 'analyze_clinical_trials') {
       throw new Error('No function call result from Gemini');
     }
     

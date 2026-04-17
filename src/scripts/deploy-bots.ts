@@ -59,7 +59,7 @@ async function main(): Promise<void> {
           resourceType: 'Bot',
           id: botIdPlaceholder,
           name: botName,
-          runtimeVersion: 'awslambda',//IMPORTANT: USE awslambda for production as per: https://www.medplum.com/docs/bots/running-bots-locally. Use vmcontext to run locally.
+          runtimeVersion: 'vmcontext', // Use 'vmcontext' for local Medplum, 'awslambda' for hosted/production
           timeout: 60,
           sourceCode: {
             contentType: ContentType.TYPESCRIPT,

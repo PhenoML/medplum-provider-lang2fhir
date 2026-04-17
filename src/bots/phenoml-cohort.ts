@@ -55,7 +55,11 @@ export async function handler(medplum: MedplumClient, event: BotEvent<CohortBotI
   const password = event.secrets["PHENOML_PASSWORD"].valueString as string;
 
   // Initialize PhenoML client with automatic auth handling
-  const phenoml = new PhenoMLClient({ username: email, password });
+  const phenoml = new PhenoMLClient({
+    username: email,
+    password,
+    baseUrl: 'http://localhost:8090'  // Local PhenoML server
+  });
 
   // Call cohort analyze endpoint using SDK
   const cohortResponse = await phenoml.cohort.analyze({

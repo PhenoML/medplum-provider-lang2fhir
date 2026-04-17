@@ -75,7 +75,11 @@ export async function handler(
     const password = event.secrets["PHENOML_PASSWORD"].valueString as string;
 
     // Initialize PhenoML client with automatic auth handling
-    const phenomlClient = new PhenoMLClient({ username: email, password });
+    const phenomlClient = new PhenoMLClient({
+      username: email,
+      password,
+      baseUrl: 'http://localhost:8090'  // Local PhenoML server
+    });
 
     // Call lang2fhir create endpoint using SDK
     const generatedResource = await phenomlClient.lang2Fhir.create({
