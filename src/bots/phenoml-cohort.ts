@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { BotEvent, MedplumClient } from '@medplum/core';
-import { ResourceType, Group } from '@medplum/fhirtypes';
+import type { BotEvent, MedplumClient } from '@medplum/core';
+import type { ResourceType, Group } from '@medplum/fhirtypes';
 import { Buffer } from 'buffer';
 
 
@@ -85,7 +85,7 @@ async function submitCohortRequest(cohortRequestText: any, credentials:string): 
     throw new Error(`Failed to fetch cohort queries: ${cohortResponse.statusText}`);
   }
 
-  const cohortResult = await cohortResponse.json() as any;
+  const cohortResult = (await cohortResponse.json()) as CohortOutput;
 
   // Validate response structure
   if (!cohortResult.success) {
@@ -98,7 +98,7 @@ async function submitCohortRequest(cohortRequestText: any, credentials:string): 
 
   console.log(`Successfully received ${cohortResult.queries.length} queries from PhenoML API`);
 
-  return cohortResult as CohortOutput;
+  return cohortResult;
 }
 
 // Creates a FHIR Group resource containing the cohort patients.
@@ -199,7 +199,7 @@ async function executeQuery(medplum: MedplumClient,queryConfig: Query): Promise<
     console.log(`Searching for ${resource_type} with params: "${search_params}"`);
     
     // Use searchResources like other parts of the codebase
-    const resources = await medplum.searchResources(resource_type as ResourceType, search_params || '');
+    const resources = await medplum.searchResources(resource_type, search_params || '');
     
     console.log(`Found ${resources.length} ${resource_type} resources`);
     

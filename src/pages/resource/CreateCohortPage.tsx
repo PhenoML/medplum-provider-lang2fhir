@@ -3,10 +3,11 @@
 import { Stack, Text, Textarea, Button, Box, Space } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { normalizeErrorString, normalizeOperationOutcome } from '@medplum/core';
-import { OperationOutcome, Resource } from '@medplum/fhirtypes';
+import type { OperationOutcome, Resource } from '@medplum/fhirtypes';
 import { Document, OperationOutcomeAlert, useMedplum } from '@medplum/react';
 import { IconCircleCheck, IconRobot, IconSparkles } from '@tabler/icons-react';
-import { useState, JSX } from 'react';
+import type { JSX } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { PhenoMLBranding } from '../../components/PhenoMLBranding';
 

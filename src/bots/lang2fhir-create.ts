@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { BotEvent, MedplumClient } from '@medplum/core';
-import { QuestionnaireResponse, Observation, Procedure, Condition, Patient, MedicationRequest, CarePlan, PlanDefinition, Questionnaire, ResearchStudy } from '@medplum/fhirtypes';
+import type { BotEvent, MedplumClient } from '@medplum/core';
+import type { QuestionnaireResponse, Observation, Procedure, Condition, Patient, MedicationRequest, CarePlan, PlanDefinition, Questionnaire, ResearchStudy } from '@medplum/fhirtypes';
 import { Buffer } from 'buffer';
 
 /**

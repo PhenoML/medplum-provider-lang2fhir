@@ -1,18 +1,12 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 import { Paper } from '@mantine/core';
-import {
-  DEFAULT_SEARCH_COUNT,
-  Filter,
-  formatSearchQuery,
-  isReference,
-  parseSearchRequest,
-  SearchRequest,
-  SortRule,
-} from '@medplum/core';
-import { Patient, Reference, Resource, UserConfiguration } from '@medplum/fhirtypes';
+import type { Filter, SearchRequest, SortRule } from '@medplum/core';
+import { DEFAULT_SEARCH_COUNT, formatSearchQuery, isReference, parseSearchRequest } from '@medplum/core';
+import type { Patient, Reference, Resource, UserConfiguration } from '@medplum/fhirtypes';
 import { Loading, SearchControl, useMedplum } from '@medplum/react';
-import { JSX, useEffect, useState } from 'react';
+import type { JSX } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useResourceType } from './resource/useResourceType';
 import classes from './SearchPage.module.css';
@@ -35,7 +29,9 @@ export function SearchPage(): JSX.Element {
       saveLastSearch(populatedSearch);
       setSearch(populatedSearch);
     } else {
-      navigate(`/${populatedSearch.resourceType}${formatSearchQuery(populatedSearch)}`)?.catch(console.error);
+      navigate(`/${populatedSearch.resourceType}${formatSearchQuery(populatedSearch)}`, { replace: true })?.catch(
+        console.error
+      );
     }
   }, [medplum, navigate, location]);
 
@@ -46,7 +42,7 @@ export function SearchPage(): JSX.Element {
   }
 
   return (
-    <Paper shadow="xs" m="md" p="xs" className={classes.paper}>
+    <Paper shadow="xs" m="xs" p="xs" className={classes.paper}>
       <SearchControl
         checkboxesEnabled={true}
         search={search}

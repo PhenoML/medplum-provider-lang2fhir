@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
+import type { MedplumClient } from '@medplum/core';
 import {
   addProfileToResource,
   createReference,
@@ -7,10 +8,9 @@ import {
   HTTP_HL7_ORG,
   HTTP_TERMINOLOGY_HL7_ORG,
   LOINC,
-  MedplumClient,
   SNOMED,
 } from '@medplum/core';
-import {
+import type {
   Address,
   CodeableConcept,
   Coding,
@@ -641,7 +641,7 @@ export async function addConsent(
   scope: CodeableConcept,
   category: CodeableConcept,
   policyRule: CodeableConcept | undefined,
-  date: Consent['dateTime'] | undefined
+  date: Consent['dateTime']
 ): Promise<void> {
   await medplum.createResource({
     resourceType: 'Consent',
@@ -763,7 +763,7 @@ export function getHumanName(
 ): HumanName | undefined {
   const patientName: HumanName = {};
 
-  const givenName = [];
+  const givenName: string[] = [];
   if (answers[`${prefix}first-name`]?.valueString) {
     givenName.push(answers[`${prefix}first-name`].valueString as string);
   }

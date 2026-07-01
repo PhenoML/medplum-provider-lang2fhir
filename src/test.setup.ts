@@ -5,7 +5,7 @@ import '@testing-library/jest-dom';
 
 import { MemoryStorage, indexSearchParameterBundle, indexStructureDefinitionBundle } from '@medplum/core';
 import { SEARCH_PARAMETER_BUNDLE_FILES, readJson } from '@medplum/definitions';
-import { Bundle, SearchParameter } from '@medplum/fhirtypes';
+import type { Bundle, SearchParameter } from '@medplum/fhirtypes';
 import { vi } from 'vitest';
 
 const { getComputedStyle } = window;
@@ -37,6 +37,12 @@ window.ResizeObserver = ResizeObserver;
 // jsdom does not implement scrollIntoView
 // See: https://github.com/jsdom/jsdom/issues/1695#issuecomment-449931788
 Element.prototype.scrollIntoView = vi.fn();
+
+// jsdom does not implement scrollTo
+Element.prototype.scrollTo = vi.fn();
+
+// jsdom does not implement elementFromPoint (used by react-big-calendar)
+document.elementFromPoint = vi.fn().mockReturnValue(null);
 
 indexStructureDefinitionBundle(readJson('fhir/r4/profiles-types.json') as Bundle);
 indexStructureDefinitionBundle(readJson('fhir/r4/profiles-resources.json') as Bundle);

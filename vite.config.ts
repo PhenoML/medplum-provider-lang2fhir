@@ -2,18 +2,24 @@
 // SPDX-License-Identifier: Apache-2.0
 import react from '@vitejs/plugin-react';
 import dns from 'dns';
-import { existsSync } from 'fs';
+import { copyFileSync, existsSync } from 'fs';
 import path from 'path';
-import { defineConfig, UserConfig } from 'vite';
+import type { UserConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 
 dns.setDefaultResultOrder('verbatim');
+
+if (!existsSync(path.join(__dirname, '.env'))) {
+  copyFileSync(path.join(__dirname, '.env.defaults'), path.join(__dirname, '.env'));
+}
 
 // Resolve aliases to local packages when working within the monorepo
 const alias: NonNullable<UserConfig['resolve']>['alias'] = Object.fromEntries(
   Object.entries({
     '@medplum/core': path.resolve(__dirname, '../../packages/core/src'),
     '@medplum/dosespot-react': path.resolve(__dirname, '../../packages/dosespot-react/src'),
+    '@medplum/scriptsure-react': path.resolve(__dirname, '../../packages/scriptsure-react/src'),
     '@medplum/react$': path.resolve(__dirname, '../../packages/react/src'),
     '@medplum/react/styles.css': path.resolve(__dirname, '../../packages/react/dist/esm/index.css'),
     '@medplum/react-hooks': path.resolve(__dirname, '../../packages/react-hooks/src'),
@@ -24,14 +30,15 @@ const alias: NonNullable<UserConfig['resolve']>['alias'] = Object.fromEntries(
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  envPrefix: ['MEDPLUM_', 'GOOGLE_', 'RECAPTCHA_'],
   plugins: [react()],
   server: {
     host: 'localhost',
-    port: 3000,
+    port: 3001,
   },
   preview: {
     host: 'localhost',
-    port: 3000,
+    port: 3001,
   },
   resolve: {
     alias,
@@ -40,5 +47,14 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test.setup.ts',
+    server: {
+      deps: {
+        // The published @medplum packages read import.meta.env (e.g. Logo -> MEDPLUM_LOGO_URL), which is
+        // undefined for externalized ESM under vitest. Inline all @medplum packages so Vite transforms them
+        // (defining import.meta.env) AND they share a single React-context instance. In the monorepo these
+        // are aliased to source instead.
+        inline: [/@medplum\//],
+      },
+    },
   },
 });

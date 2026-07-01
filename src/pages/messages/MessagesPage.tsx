@@ -1,210 +1,103 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { ScrollArea, Text, Paper, Stack, Divider, Flex, Button, ActionIcon, Menu, Skeleton, Box } from '@mantine/core';
-import { Communication, Patient, Reference } from '@medplum/fhirtypes';
-import { useMedplum, PatientSummary, ThreadChat } from '@medplum/react';
-import { JSX, useEffect, useState } from 'react';
-import { getReferenceString } from '@medplum/core';
-import { ChatList } from '../../components/messages/ChatList';
-import { NewTopicDialog } from '../../components/messages/NewTopicDialog';
-import { showErrorNotification } from '../../utils/notifications';
-import { IconChevronDown, IconPlus } from '@tabler/icons-react';
+import type { SearchRequest } from '@medplum/core';
+import { formatSearchQuery, getReferenceString, Operator } from '@medplum/core';
+import type { Communication, DocumentReference, Reference } from '@medplum/fhirtypes';
+import { createPharmaciesSection, getDefaultSections, ThreadInbox } from '@medplum/react';
+import { useMedplum } from '@medplum/react-hooks';
+import type { JSX } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router';
+import { usePharmacyDialog } from '../../components/pharmacy/usePharmacyDialog';
+import { normalizeCommunicationSearch } from '../../utils/communication-search';
 import classes from './MessagesPage.module.css';
-import { useDisclosure } from '@mantine/hooks';
-import cx from 'clsx';
-
 /**
- * Messages page that matches the Home page layout but without the patient list.
- * @returns A React component that displays the messages page.
+ * Fetches
+ * @returns A React component that displays all Threads/Topics.
  */
 export function MessagesPage(): JSX.Element {
+  const { messageId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const medplum = useMedplum();
-  const [loading, setLoading] = useState(false);
-  const [selectedThread, setSelectedThread] = useState<Communication | undefined>(undefined);
-  const [threadMessages, setThreadMessages] = useState<Communication[]>([]);
-  const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
-  const [status, setStatus] = useState<Communication['status']>('in-progress');
+  const PharmacyDialogComponent = usePharmacyDialog();
+
+  const currentSearch = useMemo(() => (location.search ? location.search.substring(1) : ''), [location.search]);
+
+  const { normalizedSearch, parsedSearch } = useMemo(
+    () =>
+      normalizeCommunicationSearch({
+        search: currentSearch,
+      }),
+    [currentSearch]
+  );
 
   useEffect(() => {
-    async function fetchAllCommunications(): Promise<void> {
-      const searchParams = new URLSearchParams();
-      searchParams.append('_sort', '-sent');
-      searchParams.append('part-of:missing', 'true');
-      searchParams.append('status', status);
-      const searchResult = await medplum.searchResources('Communication', searchParams, { cache: 'no-cache' });
-      setThreadMessages(searchResult);
+    const isDetailView = Boolean(messageId);
+    if (!isDetailView && normalizedSearch !== currentSearch) {
+      const prefix = normalizedSearch ? `?${normalizedSearch}` : '';
+      navigate(`/Communication${prefix}`, { replace: true })?.catch(console.error);
+    }
+  }, [currentSearch, navigate, normalizedSearch, messageId]);
 
-      if (searchResult.length > 0) {
-        setSelectedThread(searchResult[0]);
-      }
-    }
-    setLoading(true);
-    fetchAllCommunications()
-      .catch(showErrorNotification)
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [medplum, status]);
+  const onChange = (search: SearchRequest): void => {
+    navigate(`/Communication${formatSearchQuery(search)}`)?.catch(console.error);
+  };
 
-  const handleStatusChange = async (status: Communication['status']): Promise<void> => {
-    if (!selectedThread) {
-      return;
-    }
-    try {
-      const updatedThread = await medplum.updateResource({
-        ...selectedThread,
-        status: status,
-      });
-      setSelectedThread(updatedThread);
-    } catch (error) {
-      showErrorNotification(error);
-    }
+  const getThreadUri = (topic: Communication): string => {
+    return `/Communication/${topic.id}${formatSearchQuery(parsedSearch)}`;
+  };
+
+  const buildStatusSearch = (value: Communication['status']): SearchRequest => {
+    const otherFilters = parsedSearch.filters?.filter((f) => f.code !== 'status') || [];
+    const newFilters = [...otherFilters, { code: 'status', operator: Operator.EQUALS, value }];
+    return {
+      ...parsedSearch,
+      filters: newFilters,
+      offset: 0,
+    };
+  };
+
+  const inProgressUri = `/Communication${formatSearchQuery(buildStatusSearch('in-progress'))}`;
+  const completedUri = `/Communication${formatSearchQuery(buildStatusSearch('completed'))}`;
+
+  const sections = useMemo(
+    () =>
+      getDefaultSections().map((s) => (s.key === 'pharmacies' ? createPharmaciesSection(PharmacyDialogComponent) : s)),
+    [PharmacyDialogComponent]
+  );
+
+  const onNew = (message: Communication): void => {
+    navigate(getThreadUri(message))?.catch(console.error);
+  };
+
+  const onViewInDocuments = (reference: Reference<DocumentReference>): void => {
+    medplum
+      .readReference(reference)
+      .then((docRef) => {
+        const subject = docRef.subject?.reference;
+        const path = subject ? `/${subject}/${getReferenceString(reference)}` : `/${getReferenceString(reference)}`;
+        navigate(path)?.catch(console.error);
+      })
+      .catch(console.error);
   };
 
   return (
-    <>
-      <div className={classes.container}>
-        <Flex h="100%" w="100%">
-          {/* Left sidebar - Messages list */}
-          <Flex direction="column" w="25%" h="100%" className={classes.rightBorder}>
-            <Paper h="100%">
-              <ScrollArea h="100%" scrollbarSize={10} type="hover" scrollHideDelay={250}>
-                <Flex h={64} align="center" justify="space-between" p="md">
-                  <Text fz="h4" fw={800} truncate>
-                    Messages
-                  </Text>
-                  <ActionIcon radius="50%" variant="filled" color="blue" onClick={openModal}>
-                    <IconPlus size={16} />
-                  </ActionIcon>
-                </Flex>
-                <Divider />
-                <Flex p="md" gap="xs">
-                  <Button
-                    className={cx(classes.button, { [classes.selected]: status === 'in-progress' })}
-                    h={32}
-                    radius="xl"
-                    onClick={() => setStatus('in-progress')}
-                  >
-                    In progress
-                  </Button>
-
-                  <Button
-                    className={cx(classes.button, { [classes.selected]: status === 'completed' })}
-                    h={32}
-                    radius="xl"
-                    onClick={() => setStatus('completed')}
-                  >
-                    Completed
-                  </Button>
-                </Flex>
-                <Divider />
-                {loading ? (
-                  <Stack gap="md" p="md">
-                    {Array.from({ length: 10 }).map((_, index) => (
-                      <Flex key={index} gap="sm" align="flex-start">
-                        <Skeleton height={40} width={40} radius="50%" />
-                        <Box style={{ flex: 1 }}>
-                          <Flex direction="column" gap="xs">
-                            <Skeleton height={16} width={`${Math.random() * 40 + 60}%`} />
-                            <Skeleton height={14} width={`${Math.random() * 50 + 40}%`} />
-                          </Flex>
-                        </Box>
-                      </Flex>
-                    ))}
-                  </Stack>
-                ) : (
-                  threadMessages.length > 0 && (
-                    <ChatList
-                      communications={threadMessages}
-                      selectedCommunication={selectedThread}
-                      onClick={setSelectedThread}
-                    />
-                  )
-                )}
-              </ScrollArea>
-            </Paper>
-          </Flex>
-
-          {/* Main chat area */}
-          <Flex direction="column" w="50%" h="100%" className={classes.rightBorder}>
-            {selectedThread && (
-              <Paper h="100%">
-                <Stack h="100%" gap={0}>
-                  <Flex h={64} align="center" justify="space-between" p="md">
-                    <Text fw={800} truncate fz="lg">
-                      {selectedThread.topic?.text ?? 'Messages'}
-                    </Text>
-
-                    <Menu position="bottom-end" shadow="md">
-                      <Menu.Target>
-                        <Button
-                          variant="light"
-                          color={getStatusColor(selectedThread.status)}
-                          rightSection={
-                            selectedThread.status === 'completed' ? undefined : <IconChevronDown size={16} />
-                          }
-                          radius="xl"
-                          size="sm"
-                        >
-                          {selectedThread.status
-                            .split('-')
-                            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                            .join(' ')}
-                        </Button>
-                      </Menu.Target>
-
-                      {selectedThread.status !== 'completed' && (
-                        <>
-                          <Menu.Dropdown>
-                            <Menu.Item onClick={() => handleStatusChange('completed')}>Completed</Menu.Item>
-                            <Menu.Item onClick={() => handleStatusChange('stopped')}>Stopped</Menu.Item>
-                          </Menu.Dropdown>
-                        </>
-                      )}
-                    </Menu>
-                  </Flex>
-                  <Divider />
-                  <Flex direction="column" h="100%">
-                    <ThreadChat
-                      key={`${getReferenceString(selectedThread)}`}
-                      title={'Messages'}
-                      thread={selectedThread}
-                      excludeHeader={true}
-                    />
-                  </Flex>
-                </Stack>
-              </Paper>
-            )}
-          </Flex>
-
-          {/* Right sidebar - Patient summary */}
-          <Flex direction="column" w="25%" h="100%">
-            {selectedThread && (
-              <ScrollArea p={0} h="100%" scrollbarSize={10} type="hover" scrollHideDelay={250}>
-                <PatientSummary key={selectedThread.id} patient={selectedThread.subject as Reference<Patient>} />
-              </ScrollArea>
-            )}
-          </Flex>
-        </Flex>
-      </div>
-      <NewTopicDialog
-        opened={modalOpened}
-        onClose={closeModal}
-        onSubmit={(communication) => {
-          setThreadMessages([communication, ...threadMessages]);
-          setSelectedThread(communication);
-        }}
+    <div className={classes.container}>
+      <ThreadInbox
+        threadId={messageId}
+        query={formatSearchQuery(parsedSearch).substring(1)}
+        showPatientSummary={true}
+        sections={sections}
+        allowPatientSelection={true}
+        onNew={onNew}
+        getThreadUri={getThreadUri}
+        onViewInDocuments={onViewInDocuments}
+        onChange={onChange}
+        inProgressUri={inProgressUri}
+        completedUri={completedUri}
+        uploadEnabled={true}
       />
-    </>
+    </div>
   );
-}
-
-function getStatusColor(status: Communication['status']): string {
-  if (status === 'completed') {
-    return 'green';
-  }
-  if (status === 'stopped') {
-    return 'red';
-  }
-  return 'blue';
 }

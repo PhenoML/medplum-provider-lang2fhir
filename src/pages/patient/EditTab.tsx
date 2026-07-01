@@ -3,20 +3,21 @@
 import { Anchor } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { deepClone, normalizeErrorString, normalizeOperationOutcome } from '@medplum/core';
-import { OperationOutcome, Resource } from '@medplum/fhirtypes';
+import type { OperationOutcome, Resource } from '@medplum/fhirtypes';
 import { Document, useMedplum } from '@medplum/react';
-import { JSX, useCallback, useEffect, useState } from 'react';
+import type { JSX } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ResourceFormWithRequiredProfile } from '../../components/ResourceFormWithRequiredProfile';
 import { RESOURCE_PROFILE_URLS } from '../resource/utils';
 
 const missingProfileMessage = RESOURCE_PROFILE_URLS.Patient ? (
-  <p>
+  <>
     Could not find the{' '}
     <Anchor href={RESOURCE_PROFILE_URLS.Patient} target="_blank">
       US Core Patient Profile
     </Anchor>
-  </p>
+  </>
 ) : undefined;
 
 export function EditTab(): JSX.Element | null {
