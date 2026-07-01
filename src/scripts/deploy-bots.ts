@@ -27,6 +27,14 @@ const Bots: BotDescription[] = [
   {
     src: 'src/bots/clinical-trials-bot.ts',
     dist: 'dist/clinical-trials-bot.js',
+  },
+  {
+    src: 'src/bots/phenoml-workflow.ts',
+    dist: 'dist/phenoml-workflow.js',
+  },
+  {
+    src: 'src/bots/phenoml-ips-summary.ts',
+    dist: 'dist/phenoml-ips-summary.js',
   }
 ];
 

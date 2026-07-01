@@ -33,7 +33,7 @@ This app uses PhenoML's Lang2FHIR API, which requires the auth token from your P
 
 Your credentials can be accessed in your PhenoML account by signing in to the [PhenoMLDeveloper Portal](https://developer.pheno.ml) with your email to generate a one-time link. Navigate to [Getting Started](https://developer.pheno.ml/reference/getting-started#/) and copy the credentials populated. If your credentials aren't populated and you have signed up for a plan please contact support: [support@phenoml.com](mailto:support@phenoml.com)
 
-Once you have copied your credentials you'll need to update them as secrets in your Medplum project. This can be done in the Medplum App. Navigate to admin page by clicking on Project in the Admin section of the sidebar. In the Secrets tab, click Add Secret and create secrets for your PhenoML email and and password with names of PHENOML_EMAIL and PHENOML_PASSWORD. 
+Once you have copied your credentials you'll need to update them as secrets in your Medplum project. This can be done in the Medplum App. Navigate to admin page by clicking on Project in the Admin section of the sidebar. In the Secrets tab, click Add Secret and create secrets for your PhenoML client id and client secret with names of PHENOML_CLIENT_ID and PHENOML_CLIENT_SECRET. 
 
 ### :exclamation::exclamation: **IMPORTANT**: Medplum Pre-Requisites
 **This demo application will NOT work unless you already have the Medplum stack set up** either locally or using Medplum's hosted services.
