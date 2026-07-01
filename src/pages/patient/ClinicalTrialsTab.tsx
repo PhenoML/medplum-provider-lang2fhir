@@ -5,7 +5,8 @@ import { showNotification } from '@mantine/notifications';
 import { normalizeErrorString } from '@medplum/core';
 import { useMedplum } from '@medplum/react';
 import { IconSearch, IconInfoCircle, IconMapPin, IconStethoscope, IconPill } from '@tabler/icons-react';
-import { useState, useEffect, JSX } from 'react';
+import type { JSX } from 'react';
+import { useState, useEffect } from 'react';
 import { usePatient } from '../../hooks/usePatient';
 
 interface SearchCriteria {

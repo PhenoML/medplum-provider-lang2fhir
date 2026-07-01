@@ -1,32 +1,26 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Stack, Tabs } from '@mantine/core';
+import { Stack } from '@mantine/core';
 import { getReferenceString } from '@medplum/core';
-import { Resource, ResourceType } from '@medplum/fhirtypes';
-import { Document, useMedplum } from '@medplum/react';
-import { JSX, useCallback, useEffect, useState } from 'react';
+import type { Resource, ResourceType } from '@medplum/fhirtypes';
+import { Document, LinkTabs, useMedplum } from '@medplum/react';
+import type { JSX } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useParams } from 'react-router';
 import classes from './ResourcePage.module.css';
 import { useResourceType } from './useResourceType';
 
-const tabs = [
-  { id: 'details', url: '', label: 'Details' },
-  { id: 'edit', url: 'edit', label: 'Edit' },
-  { id: 'history', url: 'history', label: 'History' },
-  { id: 'preview', url: 'preview', label: 'Preview' },
-  { id: 'source', url: 'source', label: 'Source' },
-];
+const baseTabs = ['Details', 'Edit', 'History'];
 
 export function ResourcePage(): JSX.Element | null {
   const navigate = useNavigate();
   const medplum = useMedplum();
+
+  const project = medplum.getProject();
+  const schedulingEnabled = project?.features?.includes('scheduling');
+
   const { resourceType, id } = useParams();
   const [resource, setResource] = useState<Resource | undefined>(undefined);
-  const [currentTab, setCurrentTab] = useState<string>(() => {
-    const tabId = window.location.pathname.split('/').pop();
-    const tab = tabId ? tabs.find((t) => t.id === tabId) : undefined;
-    return (tab ?? tabs[0]).id;
-  });
 
   useResourceType(resourceType, { onInvalidResourceType: () => navigate('..')?.catch(console.error) });
 
@@ -39,31 +33,16 @@ export function ResourcePage(): JSX.Element | null {
     }
   }, [medplum, resourceType, id, navigate]);
 
-  const onTabChange = useCallback(
-    (newTabName: string | null): void => {
-      if (!newTabName) {
-        newTabName = tabs[0].id;
-      }
-
-      const tab = tabs.find((t) => t.id === newTabName);
-      if (tab) {
-        setCurrentTab(tab.id);
-        navigate(tab.url)?.catch(console.error);
-      }
-    },
-    [navigate]
-  );
-
-  // Get visible tabs based on resource type
-  const visibleTabs = tabs.filter(tab => {
-    if (tab.id === 'preview') {
-      return resourceType === 'Questionnaire';
-    }
-    if (tab.id === 'source') {
-      return resourceType === 'Questionnaire' || resourceType === 'QuestionnaireResponse';
-    }
-    return true;
-  });
+  const tabs = [...baseTabs];
+  if (resourceType === 'HealthcareService' && schedulingEnabled) {
+    tabs.push('Scheduling');
+  }
+  if (resourceType === 'Questionnaire') {
+    tabs.push('Preview');
+  }
+  if (resourceType === 'Questionnaire' || resourceType === 'QuestionnaireResponse') {
+    tabs.push('Source');
+  }
 
   if (!resource) {
     return null;
@@ -72,15 +51,7 @@ export function ResourcePage(): JSX.Element | null {
   return (
     <Document key={getReferenceString(resource)}>
       <Stack>
-        <Tabs variant="pills" value={currentTab.toLowerCase()} onChange={onTabChange} classNames={classes}>
-          <Tabs.List style={{ whiteSpace: 'nowrap', flexWrap: 'nowrap' }}>
-            {visibleTabs.map((t) => (
-              <Tabs.Tab key={t.id} value={t.id} px="sm">
-                {t.label}
-              </Tabs.Tab>
-            ))}
-          </Tabs.List>
-        </Tabs>
+        <LinkTabs variant="pills" baseUrl={`/${resourceType}/${id}`} tabs={tabs} classNames={classes} />
         <Outlet />
       </Stack>
     </Document>

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { Anchor, Badge, Card, Divider, Group, List, Stack, Text, Title } from '@mantine/core';
 import { formatDateTime, getDisplayString } from '@medplum/core';
-import { Annotation } from '@medplum/fhirtypes';
+import type { Annotation } from '@medplum/fhirtypes';
 import { ResourceAvatar, useResource } from '@medplum/react';
 import React from 'react';
 
@@ -178,6 +178,22 @@ function formatClinicalTrialsNote(analysis: ClinicalTrialsAnalysis): React.JSX.E
   );
 }
 
+function renderTextWithLinks(text: string): React.ReactNode {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+
+  return parts.map((part, index) => {
+    if (urlRegex.test(part)) {
+      return (
+        <Anchor key={index} href={part} target="_blank" rel="noopener noreferrer">
+          {part}
+        </Anchor>
+      );
+    }
+    return part;
+  });
+}
+
 export function TaskNoteItem(props: TaskNoteItemProps): React.JSX.Element {
   const { note } = props;
   const author = useResource(note.authorReference);
@@ -190,13 +206,11 @@ export function TaskNoteItem(props: TaskNoteItemProps): React.JSX.Element {
         <Text fw={500}>{author && getDisplayString(author)}</Text>
         <Text>{formatDateTime(note.time ?? '')}</Text>
       </Group>
-      
       {clinicalAnalysis ? (
         formatClinicalTrialsNote(clinicalAnalysis)
       ) : (
-        <Text style={{ whiteSpace: 'pre-wrap' }}>{note.text}</Text>
+        <Text style={{ whiteSpace: 'pre-wrap' }}>{note.text ? renderTextWithLinks(note.text) : ''}</Text>
       )}
-      
       <Divider />
     </Stack>
   );

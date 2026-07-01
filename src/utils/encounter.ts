@@ -1,80 +1,95 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import {
-  getReferenceString,
-  MedplumClient,
-  createReference,
-  formatHumanName,
-  getExtension,
-  HTTP_HL7_ORG,
-} from '@medplum/core';
-import {
+import type { MedplumClient, WithId } from '@medplum/core';
+import { createReference, getExtension, getReferenceString, HTTP_HL7_ORG, isResource } from '@medplum/core';
+import type {
   Appointment,
   ChargeItem,
   ClinicalImpression,
   Coding,
   Encounter,
-  HumanName,
   Patient,
   PlanDefinition,
   Practitioner,
+  Reference,
+  Schedule,
   ServiceRequest,
+  Slot,
   Task,
 } from '@medplum/fhirtypes';
 
-export async function createEncounter(
+export async function createAppointment(
   medplum: MedplumClient,
   start: Date,
   end: Date,
-  classification: Coding,
   patient: Patient,
-  planDefinition: PlanDefinition
-): Promise<Encounter> {
+  practitioner: Practitioner | Reference<Practitioner>,
+  schedule?: Schedule
+): Promise<Appointment> {
+  const practitionerRef = isResource(practitioner) ? createReference(practitioner) : practitioner;
+
+  // If we have a schedule reference, add a busy slot to prevent future
+  // scheduling operations (such as $find or $book) from thinking this
+  // time is free.
+  let slot: WithId<Slot> | undefined = undefined;
+  if (schedule) {
+    slot = await medplum.createResource({
+      resourceType: 'Slot',
+      start: start.toISOString(),
+      end: end.toISOString(),
+      schedule: createReference(schedule),
+      status: 'busy',
+    });
+  }
+
   const appointment = await medplum.createResource({
     resourceType: 'Appointment',
     status: 'booked',
     start: start.toISOString(),
     end: end.toISOString(),
+    slot: slot ? [createReference(slot)] : undefined,
     participant: [
       {
-        actor: {
-          reference: getReferenceString(patient),
-          display: formatHumanName(patient.name?.[0] as HumanName),
-        },
+        actor: createReference(patient),
         status: 'accepted',
       },
       {
-        actor: {
-          reference: getReferenceString(medplum.getProfile() as Practitioner),
-          display: formatHumanName(medplum.getProfile()?.name as HumanName),
-        },
+        actor: practitionerRef,
         status: 'accepted',
       },
     ],
   });
 
-  const encounter: Encounter = await medplum.createResource({
+  return appointment;
+}
+
+export async function createEncounter(
+  medplum: MedplumClient,
+  classification: Coding,
+  patient: Patient | Reference<Patient>,
+  planDefinition: PlanDefinition,
+  appointment: Appointment,
+  practitioner: Practitioner | Reference<Practitioner>
+): Promise<WithId<Encounter>> {
+  const practitionerRef = isResource(practitioner) ? createReference(practitioner) : practitioner;
+  const patientRef = isResource(patient) ? createReference(patient) : patient;
+
+  const encounter: WithId<Encounter> = await medplum.createResource({
     resourceType: 'Encounter',
     status: 'planned',
     statusHistory: [],
     classHistory: [],
     class: classification,
-    subject: createReference(patient),
+    subject: patientRef,
     appointment: [createReference(appointment)],
-    participant: [
-      {
-        individual: {
-          reference: getReferenceString(medplum.getProfile() as Practitioner),
-        },
-      },
-    ],
+    participant: [{ individual: practitionerRef }],
   });
 
   const clinicalImpressionData: ClinicalImpression = {
     resourceType: 'ClinicalImpression',
-    status: 'completed',
+    status: 'in-progress',
     description: 'Initial clinical impression',
-    subject: createReference(patient),
+    subject: patientRef,
     encounter: createReference(encounter),
     date: new Date().toISOString(),
   };
@@ -86,11 +101,12 @@ export async function createEncounter(
     parameter: [
       { name: 'subject', valueString: getReferenceString(patient) },
       { name: 'encounter', valueString: getReferenceString(encounter) },
+      { name: 'practitioner', valueString: getReferenceString(practitioner) },
     ],
   });
 
-  await createChargeItemFromPlanDefinition(medplum, encounter, patient, planDefinition);
-  await handleChargeItemsFromTasks(medplum, encounter, patient);
+  await createChargeItemFromPlanDefinition(medplum, encounter, patientRef, planDefinition);
+  await handleChargeItemsFromTasks(medplum, encounter, patientRef);
 
   return encounter;
 }
@@ -98,7 +114,7 @@ export async function createEncounter(
 async function createChargeItemFromPlanDefinition(
   medplum: MedplumClient,
   encounter: Encounter,
-  patient: Patient,
+  patient: Reference<Patient>,
   planDefinition: PlanDefinition
 ): Promise<void> {
   const serviceBillingCodeExtension = getExtension(
@@ -127,7 +143,7 @@ async function createChargeItemFromPlanDefinition(
   const chargeItem: ChargeItem = {
     resourceType: 'ChargeItem',
     status: 'planned',
-    subject: createReference(patient),
+    subject: patient,
     context: createReference(encounter),
     occurrenceDateTime: new Date().toISOString(),
     code: serviceBillingCodeExtension.valueCodeableConcept,
@@ -144,7 +160,7 @@ async function createChargeItemFromPlanDefinition(
 async function handleChargeItemsFromTasks(
   medplum: MedplumClient,
   encounter: Encounter,
-  patient: Patient
+  patient: Reference<Patient>
 ): Promise<void> {
   const tasks = await medplum.search('Task', {
     encounter: getReferenceString(encounter),
@@ -177,7 +193,7 @@ async function handleChargeItemsFromTasks(
 
 async function createChargeItemFromServiceRequest(
   medplum: MedplumClient,
-  patient: Patient,
+  patient: Reference<Patient>,
   serviceRequest: ServiceRequest
 ): Promise<void> {
   const chargeDefinitionExtension = getExtension(
@@ -203,7 +219,7 @@ async function createChargeItemFromServiceRequest(
         reference: `ServiceRequest/${serviceRequest.id}`,
       },
     ],
-    subject: createReference(patient),
+    subject: patient,
     context: serviceRequest.encounter,
     occurrenceDateTime: serviceRequest.occurrenceDateTime || new Date().toISOString(),
     code: serviceRequest.code || { coding: [] },
@@ -218,11 +234,11 @@ async function createChargeItemFromServiceRequest(
 
 export async function updateEncounterStatus(
   medplum: MedplumClient,
-  encounter: Encounter,
-  appointment: Appointment | undefined,
+  encounter: WithId<Encounter>,
+  appointment: WithId<Appointment> | undefined,
   newStatus: Encounter['status']
-): Promise<Encounter> {
-  const updatedEncounter: Encounter = {
+): Promise<WithId<Encounter>> {
+  const updatedEncounter: WithId<Encounter> = {
     ...encounter,
     status: newStatus,
     ...(newStatus === 'in-progress' &&

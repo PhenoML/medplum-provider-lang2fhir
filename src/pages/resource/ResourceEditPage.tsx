@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { showNotification } from '@mantine/notifications';
 import { deepClone, normalizeErrorString, normalizeOperationOutcome } from '@medplum/core';
-import { OperationOutcome, Resource, ResourceType } from '@medplum/fhirtypes';
+import type { OperationOutcome, Resource, ResourceType } from '@medplum/fhirtypes';
 import { useMedplum } from '@medplum/react';
-import { JSX, useCallback, useEffect, useState } from 'react';
+import type { JSX } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ResourceFormWithRequiredProfile } from '../../components/ResourceFormWithRequiredProfile';
 import { RESOURCE_PROFILE_URLS } from './utils';
@@ -20,7 +21,7 @@ export function ResourceEditPage(): JSX.Element | null {
   useEffect(() => {
     if (resourceType && id) {
       medplum
-        .readResource(resourceType as ResourceType, id)
+        .readResource(resourceType, id)
         .then((resource) => setValue(deepClone(resource)))
         .catch((err) => {
           setOutcome(normalizeOperationOutcome(err));

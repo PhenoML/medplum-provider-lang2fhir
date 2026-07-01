@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { BotEvent, MedplumClient } from '@medplum/core';
-import { Patient, Condition, MedicationRequest, Task, Practitioner, Device } from '@medplum/fhirtypes';
+import type { BotEvent, MedplumClient } from '@medplum/core';
+import type { Patient, Condition, MedicationRequest, Task, Practitioner, Device } from '@medplum/fhirtypes';
 
 /**
  * A Medplum Bot that analyzes patient data and searches for relevant clinical trials.
@@ -488,7 +488,7 @@ ${JSON.stringify(simplifiedTrials, null, 2)}`
     // Extract the function call result
     const functionCall = result.candidates?.[0]?.content?.parts?.[0]?.functionCall;
     
-    if (!functionCall || functionCall.name !== 'analyze_clinical_trials') {
+    if (functionCall?.name !== 'analyze_clinical_trials') {
       throw new Error('No function call result from Gemini');
     }
     

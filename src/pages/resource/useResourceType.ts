@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 import { tryGetDataType } from '@medplum/core';
-import { ResourceType } from '@medplum/fhirtypes';
+import type { ResourceType } from '@medplum/fhirtypes';
 import { useMedplum } from '@medplum/react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -15,7 +15,7 @@ export function useResourceType(
 ): ResourceType | undefined {
   const medplum = useMedplum();
 
-  const lastInput = useRef<string | undefined>(resourceType);
+  const lastInput = useRef(resourceType);
   const [validatedResourceType, setValidatedResourceType] = useState<ResourceType | undefined>();
 
   useEffect(() => {

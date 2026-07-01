@@ -3,9 +3,10 @@
 import { Stack, Text, Group, Button } from '@mantine/core';
 import { showNotification } from '@mantine/notifications';
 import { createReference, normalizeErrorString, normalizeOperationOutcome } from '@medplum/core';
-import { OperationOutcome, Patient, Resource, ResourceType } from '@medplum/fhirtypes';
+import type { OperationOutcome, Patient, Resource, ResourceType } from '@medplum/fhirtypes';
 import { Document, Loading, useMedplum } from '@medplum/react';
-import { JSX, useEffect, useState } from 'react';
+import type { JSX } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ResourceFormWithRequiredProfile } from '../../components/ResourceFormWithRequiredProfile';
 import { IconSparkles } from '@tabler/icons-react';
@@ -54,13 +55,22 @@ const LANG2FHIR_SUPPORTED_TYPES = [
   'CarePlan',
   'PlanDefinition',
   'Questionnaire',
-  'ResearchStudy'
+  'ResearchStudy',
 ] as const;
 
-type Lang2FHIRSupportedType = typeof LANG2FHIR_SUPPORTED_TYPES[number];
+type Lang2FHIRSupportedType = (typeof LANG2FHIR_SUPPORTED_TYPES)[number];
 
-function isLang2FHIRSupported(resourceType: string): resourceType is Lang2FHIRSupportedType {
+function isLang2FHIRSupported(resourceType: string | undefined): resourceType is Lang2FHIRSupportedType {
   return LANG2FHIR_SUPPORTED_TYPES.includes(resourceType as Lang2FHIRSupportedType);
+}
+
+function getResourceTypeFromPath(pathname: string): ResourceType | undefined {
+  const pathParts = pathname.split('/');
+  if (pathParts.length >= 3 && pathParts[2] === 'new') {
+    return pathParts[1] as ResourceType;
+  }
+
+  return undefined;
 }
 
 export function ResourceCreatePage(): JSX.Element {
@@ -68,13 +78,20 @@ export function ResourceCreatePage(): JSX.Element {
   const [outcome, setOutcome] = useState<OperationOutcome | undefined>();
   const patient = usePatient({ ignoreMissingPatientId: true, setOutcome });
   const navigate = useNavigate();
-  const { patientId, resourceType } = useParams() as { patientId: string | undefined; resourceType: ResourceType };
+  const params = useParams() as { patientId?: string; resourceType?: ResourceType };
+  const resourceType = params.resourceType || getResourceTypeFromPath(location.pathname);
+  const patientId = params.patientId;
   const [loadingPatient, setLoadingPatient] = useState(Boolean(patientId));
-  const [defaultValue, setDefaultValue] = useState<Partial<Resource>>(() => getDefaultValue(resourceType, patient));
+  const [defaultValue, setDefaultValue] = useState<Partial<Resource>>(() => {
+    if (!resourceType) {
+      return {};
+    }
+    return getDefaultValue(resourceType, patient);
+  });
   const profileUrl = resourceType && RESOURCE_PROFILE_URLS[resourceType];
 
   useEffect(() => {
-    if (patient) {
+    if (patient && resourceType) {
       setDefaultValue(getDefaultValue(resourceType, patient));
     }
     setLoadingPatient(false);

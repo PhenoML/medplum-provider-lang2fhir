@@ -1,13 +1,15 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 import { Button, Container, Text, Box, LoadingOverlay, Alert, Space } from '@mantine/core';
-import { normalizeErrorString, MedplumClient, getReferenceString, WithId } from '@medplum/core';
+import type { MedplumClient } from '@medplum/core';
+import { normalizeErrorString, getReferenceString } from '@medplum/core';
 import { AttachmentButton, Document, useMedplum, useMedplumProfile, ResourceBadge, ResourceInput } from '@medplum/react';
 import { useNavigate, useParams } from 'react-router';
 import { showNotification } from '@mantine/notifications';
-import { Attachment, Bot, Bundle, Questionnaire, QuestionnaireResponse, Resource, Patient, OperationOutcome, DocumentReference,  BundleEntry } from '@medplum/fhirtypes';
+import type { Attachment, Bot, Bundle, Questionnaire, QuestionnaireResponse, Resource, Patient, OperationOutcome, DocumentReference,  BundleEntry } from '@medplum/fhirtypes';
 import { IconCircleCheck, IconCircleOff, IconUpload, IconAlertCircle, IconRobot } from '@tabler/icons-react';
-import { useCallback, useState, JSX } from 'react';
+import type { JSX } from 'react';
+import { useCallback, useState } from 'react';
 import exampleBotData from '../../data/example/example-bots.json';
 import { PhenoMLBranding } from '../components/PhenoMLBranding';
 
@@ -58,7 +60,7 @@ export function UploadDataPage(): JSX.Element {
     
     setPageDisabled(true);
     try {
-      await deployBots(medplum, profile.meta?.project as string);
+      await deployBots(medplum, profile.meta?.project);
       showSuccessNotification('Deployed Example Bots');
     } catch (error) {
       setError(normalizeErrorString(error));
@@ -209,17 +211,17 @@ async function deployBots(medplum: MedplumClient, projectId: string): Promise<vo
     let existingBot = await medplum.searchOne('Bot', { name: botName });
     // Create a new Bot if it doesn't already exist
     if (!existingBot) {
-      const createBotUrl = new URL('admin/projects/' + (projectId as string) + '/bot', medplum.getBaseUrl());
+      const createBotUrl = new URL('admin/projects/' + (projectId) + '/bot', medplum.getBaseUrl());
       existingBot = (await medplum.post(createBotUrl, {
         name: botName,
-      })) as WithId<Bot>;
+      }));
     }
 
-    botIds[botName] = existingBot.id as string;
+    botIds[botName] = existingBot.id;
 
     transactionString = transactionString
       .replaceAll(`$bot-${botName}-reference`, getReferenceString(existingBot))
-      .replaceAll(`$bot-${botName}-id`, existingBot.id as string);
+      .replaceAll(`$bot-${botName}-id`, existingBot.id);
   }
 
   const transaction = JSON.parse(transactionString);
