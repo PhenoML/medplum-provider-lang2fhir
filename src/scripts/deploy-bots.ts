@@ -35,6 +35,10 @@ const Bots: BotDescription[] = [
   {
     src: 'src/bots/phenoml-ips-summary.ts',
     dist: 'dist/phenoml-ips-summary.js',
+  },
+  {
+    src: 'src/bots/referral-intake.ts',
+    dist: 'dist/referral-intake.js',
   }
 ];
 
