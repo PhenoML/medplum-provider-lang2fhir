@@ -23,3 +23,4 @@ package-lock.json
 *.njsproj
 *.sln
 *.sw?
+data/example/example-bots.json
