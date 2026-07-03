@@ -9,11 +9,11 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 1657 >>
+<< /Length 2117 >>
 stream
 BT
-/F1 11 Tf
-15 TL
+/F1 10 Tf
+13 TL
 50 760 Td
 (BEHAVIORAL HEALTH REFERRAL) Tj T*
 (Sunrise Community Health - Primary Care Clinic) Tj T*
@@ -45,6 +45,18 @@ BT
 (occurring most days. Symptoms are impairing work performance and daily) Tj T*
 (functioning. No prior psychiatric hospitalizations. Denies active suicidal ideation.) Tj T*
 () Tj T*
+(RECENT VITALS \(measured 2026-06-10\)) Tj T*
+(Blood Pressure: 128/82 mmHg) Tj T*
+(Heart Rate: 76 bpm) Tj T*
+(Respiratory Rate: 14 breaths/min) Tj T*
+(Body Temperature: 98.4 F) Tj T*
+(Body Weight: 150 lb) Tj T*
+(Body Mass Index: 24.2 kg/m2) Tj T*
+() Tj T*
+(SCREENING SCORES \(administered 2026-06-10 by referring provider\)) Tj T*
+(PHQ-9 total score: 18 \(moderately severe depression\)) Tj T*
+(GAD-7 total score: 15 \(severe anxiety\)) Tj T*
+() Tj T*
 (DIAGNOSES) Tj T*
 (1. Generalized anxiety disorder \(F41.1\)) Tj T*
 (2. Major depressive disorder, recurrent, moderate \(F33.1\)) Tj T*
@@ -54,7 +66,7 @@ BT
 () Tj T*
 (REQUESTED SERVICES) Tj T*
 (Psychiatric evaluation, medication management, and initiation of psychotherapy.) Tj T*
-(Please assess with GAD-7 and PHQ-9 at intake.) Tj T*
+(Please continue GAD-7 and PHQ-9 monitoring at intake.) Tj T*
 ET
 endstream
 endobj
@@ -68,9 +80,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000001950 00000 n 
+0000002410 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-2020
+2480
 %%EOF

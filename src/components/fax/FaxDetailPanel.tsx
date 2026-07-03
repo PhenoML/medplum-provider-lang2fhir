@@ -1,16 +1,20 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { ActionIcon, Box, Divider, Flex, Group, Paper, Stack, Text, Tooltip } from '@mantine/core';
-import { formatDateTime, getDisplayString } from '@medplum/core';
+import { ActionIcon, Badge, Box, Button, Divider, Flex, Group, Loader, Paper, Stack, Text, Tooltip } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import { formatDateTime, getDisplayString, normalizeErrorString } from '@medplum/core';
 import type { Communication, Organization, Patient, Reference } from '@medplum/fhirtypes';
-import { MedplumLink, useResource } from '@medplum/react';
+import { MedplumLink, useMedplum, useResource } from '@medplum/react';
 import { useCachedBinaryUrl } from '@medplum/react-hooks';
-import { IconDownload, IconSend, IconUserPlus } from '@tabler/icons-react';
+import { IconCircleOff, IconClipboardCheck, IconDownload, IconRobot, IconSend, IconUserPlus } from '@tabler/icons-react';
 import type { JSX } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { getReferralStatus, isInboundFax, withReferralStatus } from '../../utils/referral';
 import { AssignPatientModal } from './AssignPatientModal';
 import { formatFaxNumber } from './fax.utils';
 import classes from './FaxBoard.module.css';
+import { FaxDocumentPreview } from './FaxDocumentPreview';
 import { SendFaxModal } from './SendFaxModal';
 
 interface FaxDetailPanelProps {
@@ -19,14 +23,21 @@ interface FaxDetailPanelProps {
 }
 
 export function FaxDetailPanel({ fax, onFaxChange }: FaxDetailPanelProps): JSX.Element {
+  const medplum = useMedplum();
+  const navigate = useNavigate();
   const patient = useResource(fax.subject);
   const [assignModalOpened, setAssignModalOpened] = useState(false);
   const [forwardModalOpened, setForwardModalOpened] = useState(false);
+  const [isStartingProcess, setIsStartingProcess] = useState(false);
 
-  const attachment = fax.payload?.find((p) => p.contentAttachment)?.contentAttachment;
+  // The document preview should show the original PDF, not the stashed extracted-Bundle JSON.
+  const attachment = fax.payload?.find(
+    (p) => p.contentAttachment && p.contentAttachment.contentType !== 'application/fhir+json'
+  )?.contentAttachment;
   const rawAttachmentUrl = useCachedBinaryUrl(attachment?.url);
   const attachmentUrl = isValidUrl(rawAttachmentUrl) ? rawAttachmentUrl : undefined;
-  const isInbound = fax.category?.[0]?.coding?.[0]?.code === 'inbound' || !fax.category?.[0]?.coding?.[0]?.code;
+  const isInbound = isInboundFax(fax);
+  const referralStatus = getReferralStatus(fax);
   const originatingFaxNumber = fax.extension?.find(
     (ext) => ext.url === 'https://efax.com/originating-fax-number'
   )?.valueString;
@@ -35,11 +46,70 @@ export function FaxDetailPanel({ fax, onFaxChange }: FaxDetailPanelProps): JSX.E
     ? formatFaxNumber(fax.sender?.display || originatingFaxNumber || 'Unknown Sender')
     : formatFaxNumber(fax.recipient?.[0]?.display || 'Unknown recipient');
 
+  // While the (slow) bot is running server-side, poll the Communication until its durable status
+  // changes, then refresh the panel. Self-cleaning on unmount or when no longer processing.
+  useEffect(() => {
+    if (referralStatus !== 'processing' || !fax.id) {
+      return undefined;
+    }
+    const interval = setInterval(() => {
+      medplum
+        .readResource('Communication', fax.id as string)
+        .then((latest) => {
+          if (getReferralStatus(latest) !== 'processing') {
+            onFaxChange();
+          }
+          return undefined;
+        })
+        .catch(() => undefined);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [referralStatus, fax.id, medplum, onFaxChange]);
+
   const handleDownload = (): void => {
     if (!attachmentUrl) {
       return;
     }
     window.open(attachmentUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const openReview = (): void => {
+    navigate(`/Fax/Communication/${fax.id}/review`)?.catch(console.error);
+  };
+
+  const handleProcess = async (): Promise<void> => {
+    if (!fax.id) {
+      return;
+    }
+    setIsStartingProcess(true);
+    try {
+      const bot = await medplum.searchOne('Bot', { name: 'referral-intake' });
+      if (!bot?.id) {
+        throw new Error('Bot "referral-intake" not found. Deploy bots first.');
+      }
+      // Durably mark processing so the state survives navigation immediately.
+      await medplum.updateResource(withReferralStatus(fax, 'processing'));
+      // Fire-and-forget: the bot is slow and writes its result back onto the Communication.
+      medplum
+        .executeBot(bot.id, { communicationId: fax.id })
+        .catch((err) => console.error('referral-intake bot error', err));
+      notifications.show({
+        color: 'blue',
+        icon: <IconRobot />,
+        title: 'Processing referral…',
+        message: 'This runs in the background — you can navigate away and come back.',
+      });
+      onFaxChange();
+    } catch (error) {
+      notifications.show({
+        color: 'red',
+        icon: <IconCircleOff />,
+        title: 'Error',
+        message: normalizeErrorString(error),
+      });
+    } finally {
+      setIsStartingProcess(false);
+    }
   };
 
   return (
@@ -54,6 +124,45 @@ export function FaxDetailPanel({ fax, onFaxChange }: FaxDetailPanelProps): JSX.E
                 </Text>
 
                 <Group gap="xs">
+                  {isInbound && referralStatus === 'processing' && (
+                    <Badge color="blue" variant="light" size="lg" leftSection={<Loader size={10} color="blue" />}>
+                      Processing…
+                    </Badge>
+                  )}
+                  {isInbound && referralStatus === 'ready-for-review' && (
+                    <Button
+                      size="xs"
+                      radius="xl"
+                      variant="filled"
+                      leftSection={<IconClipboardCheck size={14} />}
+                      onClick={openReview}
+                    >
+                      Ready to review
+                    </Button>
+                  )}
+                  {isInbound && referralStatus === 'signed' && (
+                    <Badge color="green" variant="light" size="lg">
+                      Signed
+                    </Badge>
+                  )}
+                  {isInbound && (referralStatus === undefined || referralStatus === 'error') && (
+                    <Tooltip
+                      label={referralStatus === 'error' ? 'Retry processing' : 'Process referral'}
+                      position="bottom"
+                      openDelay={500}
+                    >
+                      <ActionIcon
+                        variant="transparent"
+                        radius="xl"
+                        size={32}
+                        className="outline-icon-button"
+                        loading={isStartingProcess}
+                        onClick={handleProcess}
+                      >
+                        <IconRobot size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
                   {attachment?.url && (
                     <Tooltip label="Download" position="bottom" openDelay={500}>
                       <ActionIcon
@@ -95,61 +204,7 @@ export function FaxDetailPanel({ fax, onFaxChange }: FaxDetailPanelProps): JSX.E
 
             <Divider />
 
-            {attachmentUrl && attachment?.contentType?.startsWith('image/') ? (
-              <Box p="md" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
-                <Box
-                  style={{
-                    display: 'block',
-                    maxWidth: 'fit-content',
-                    borderRadius: 4,
-                    overflow: 'hidden',
-                    position: 'relative',
-                  }}
-                >
-                  <img
-                    src={attachmentUrl}
-                    alt={attachment.title ?? 'Fax attachment'}
-                    style={{ width: 'auto', maxWidth: '100%', height: 'auto', display: 'block' }}
-                  />
-                  <Box
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      border: '1px solid color-mix(in srgb, var(--mantine-color-gray-3) 50%, transparent)',
-                      borderRadius: 4,
-                      pointerEvents: 'none',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                </Box>
-              </Box>
-            ) : (
-              <Box p="md" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                {attachmentUrl ? (
-                  <Box
-                    style={{
-                      flex: 1,
-                      borderRadius: 4,
-                      overflow: 'hidden',
-                      border: '1px solid color-mix(in srgb, var(--mantine-color-gray-3) 50%, transparent)',
-                    }}
-                  >
-                    <iframe
-                      title="Fax attachment"
-                      width="100%"
-                      height="100%"
-                      src={attachmentUrl + '#navpanes=0'}
-                      allowFullScreen={true}
-                      style={{ display: 'block', border: 0 }}
-                    />
-                  </Box>
-                ) : (
-                  <Flex justify="center" align="center" h={300}>
-                    <Text c="dimmed">No document attached to this fax</Text>
-                  </Flex>
-                )}
-              </Box>
-            )}
+            <FaxDocumentPreview attachment={attachment} />
 
             <Box px="md">
               <Divider color="gray.1" />
