@@ -47,6 +47,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { FaxDocumentPreview } from '../../components/fax/FaxDocumentPreview';
 import {
+  decodeBase64Utf8,
   findExtractedBundleAttachment,
   findSourceAttachment,
   getReferralStatus,
@@ -96,11 +97,16 @@ export function ReferralReviewPage(): JSX.Element {
         }
         setCommunication(comm);
         const extracted = findExtractedBundleAttachment(comm);
-        if (!extracted?.url) {
+        let bundle: Bundle;
+        if (extracted?.data) {
+          bundle = JSON.parse(decodeBase64Utf8(extracted.data)) as Bundle;
+        } else if (extracted?.url) {
+          // Backward compat: older faxes stashed the bundle as a separate Binary.
+          const blob = await medplum.download(extracted.url);
+          bundle = JSON.parse(await blob.text()) as Bundle;
+        } else {
           throw new Error('No extracted data found on this fax. Run "Process" first.');
         }
-        const blob = await medplum.download(extracted.url);
-        const bundle = JSON.parse(await blob.text()) as Bundle;
         if (!cancelled) {
           setEntries(bundle.entry ?? []);
         }

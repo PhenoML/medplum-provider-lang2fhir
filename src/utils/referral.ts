@@ -55,3 +55,8 @@ export function withReferralStatus(communication: Communication, status: Referra
   extension.push({ url: REFERRAL_STATUS_EXTENSION_URL, valueCode: status });
   return { ...communication, extension };
 }
+
+// UTF-8-safe base64 decode for inline attachment data (bare atob corrupts non-ASCII, e.g. accented names).
+export function decodeBase64Utf8(data: string): string {
+  return new TextDecoder().decode(Uint8Array.from(atob(data), (c) => c.charCodeAt(0)));
+}

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 import type { BotEvent, MedplumClient } from '@medplum/core';
-import type { Attachment, Binary, Communication, DocumentReference, Extension } from '@medplum/fhirtypes';
+import type { Attachment, Communication, DocumentReference, Extension } from '@medplum/fhirtypes';
 import { Buffer } from 'buffer';
 import { phenomlClient } from 'phenoml';
 
@@ -39,8 +39,6 @@ interface ReferralBotInput {
   docref?: DocumentReference;
 }
 
-const PHENOML_BASE_URL = 'https://experiment.app.pheno.ml';
-
 // Durable workflow status tracked on the Communication (keep in sync with src/utils/referral.ts).
 const REFERRAL_STATUS_EXTENSION_URL = 'https://example.org/fhir/StructureDefinition/referral-processing-status';
 // The stashed extracted Bundle is added as an extra payload with this content type.
@@ -63,6 +61,13 @@ async function downloadBase64(medplum: MedplumClient, url: string): Promise<stri
   return Buffer.from(arrayBuffer).toString('base64');
 }
 
+// Bound the lang2fhir call so a slow/unreachable PhenoML endpoint fails with a clear error well
+// within the bot's Lambda timeout, instead of the bot being hard-killed mid-request (which leaves
+// the fax stuck in 'processing' forever). maxRetries: 0 disables the SDK's default 2 retries, which
+// can otherwise stack up past the Lambda budget. Keep this comfortably under the Bot.timeout set in
+// deploy-bots.ts so the catch has time to record the failure.
+const LANG2FHIR_TIMEOUT_SECONDS = 100;
+
 async function extractBundle(
   content: string,
   clientId: string,
@@ -75,11 +80,17 @@ async function extractBundle(
 
   // The document-multi endpoint returns a FHIR transaction Bundle of multiple resource types.
   // Passing provider: 'medplum' aligns the generated Bundle with Medplum-specific FHIR profiles.
-  const response = await client.lang2Fhir.documentMulti({
-    version: 'R4',
-    content,
-    provider: 'medplum',
-  });
+  const response = await client.lang2Fhir
+    .documentMulti(
+      { version: 'R4', content, provider: 'medplum' },
+      { timeoutInSeconds: LANG2FHIR_TIMEOUT_SECONDS, maxRetries: 0 }
+    )
+    .catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        `lang2fhir document-multi failed (baseUrl=${baseUrl}, timeout=${LANG2FHIR_TIMEOUT_SECONDS}s): ${message}`
+      );
+    });
 
   if (!response?.bundle) {
     throw new Error(`lang2fhir document-multi returned no bundle: ${response?.message ?? 'unknown error'}`);
@@ -93,9 +104,12 @@ export async function handler(medplum: MedplumClient, event: BotEvent<ReferralBo
   if (!clientId || !clientSecret) {
     throw new Error('PhenoML credentials (PHENOML_CLIENT_ID and PHENOML_CLIENT_SECRET) are required');
   }
-  // Base URL is tied to your PhenoML environment/tenant. Defaults to the shared experiment host;
-  // override with a PHENOML_BASE_URL secret (e.g. https://phenohealth.app.pheno.ml).
-  const baseUrl = event.secrets['PHENOML_BASE_URL']?.valueString || PHENOML_BASE_URL;
+  // Base URL is tied to your PhenoML environment/tenant; supplied via the required
+  // PHENOML_BASE_URL secret (e.g. https://phenohealth.app.pheno.ml).
+  const baseUrl = event.secrets['PHENOML_BASE_URL']?.valueString;
+  if (!baseUrl) {
+    throw new Error('PhenoML base url required');
+  }
 
   const { communicationId, docref } = event.input;
 
@@ -125,15 +139,12 @@ export async function handler(medplum: MedplumClient, event: BotEvent<ReferralBo
     const content = await downloadBase64(medplum, sourceAttachment.url);
     const bundle = await extractBundle(content, clientId, clientSecret, baseUrl);
 
-    // Stash the extracted Bundle as a JSON Binary and reference it from a new payload entry.
-    const binary = await medplum.createResource<Binary>({
-      resourceType: 'Binary',
-      contentType: EXTRACTED_BUNDLE_CONTENT_TYPE,
-      data: Buffer.from(JSON.stringify(bundle)).toString('base64'),
-    });
+    // Stash the extracted Bundle inline (base64) on a new payload entry. Inlining (rather than
+    // referencing a separate Binary) lets the review UI read it directly, avoiding a cross-origin
+    // Binary download that fails with "Failed to fetch" in the browser.
     const stashedPayload: Attachment = {
       contentType: EXTRACTED_BUNDLE_CONTENT_TYPE,
-      url: `Binary/${binary.id}`,
+      data: Buffer.from(JSON.stringify(bundle)).toString('base64'),
       title: EXTRACTED_BUNDLE_TITLE,
     };
 
