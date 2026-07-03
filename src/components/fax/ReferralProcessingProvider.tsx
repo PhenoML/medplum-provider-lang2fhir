@@ -35,16 +35,17 @@ export function useReferralProcessing(): ReferralProcessingContextValue {
 
 const POLL_INTERVAL_MS = 4000;
 
-/**
- * App-level provider that tracks referral fax processing jobs so a status indicator can follow the
- * user across screens. Processing runs server-side (fire-and-forget bot) and status is durable on
- * the Communication, so this just polls the tracked Communications until they leave 'processing'.
- */
+// App-level provider that tracks referral fax processing jobs so a status indicator can follow the
+// user across screens. Processing runs server-side (fire-and-forget bot) and status is durable on
+// the Communication, so this just polls the tracked Communications until they leave 'processing'.
 export function ReferralProcessingProvider({ children }: { children: React.ReactNode }): JSX.Element {
   const medplum = useMedplum();
   const [jobs, setJobs] = useState<ReferralJob[]>([]);
   const jobsRef = useRef<ReferralJob[]>(jobs);
-  jobsRef.current = jobs;
+
+  useEffect(() => {
+    jobsRef.current = jobs;
+  }, [jobs]);
 
   const track = useCallback((communicationId: string, label?: string) => {
     setJobs((prev) => [
@@ -94,11 +95,9 @@ export function ReferralProcessingProvider({ children }: { children: React.React
   );
 }
 
-/**
- * Floating indicator, fixed to the viewport so it follows the user across route changes.
- * Shows "Processing Faxes" while any job runs, then "Fax Processing Complete" (clickable to the
- * processed fax) or a failure state.
- */
+// Floating indicator, fixed to the viewport so it follows the user across route changes.
+// Shows "Processing Faxes" while any job runs, then "Fax Processing Complete" (clickable to the
+// processed fax) or a failure state.
 export function ReferralProcessingIndicator(): JSX.Element | null {
   const { jobs, dismiss } = useReferralProcessing();
   const navigate = useNavigate();

@@ -9,11 +9,9 @@ interface FaxDocumentPreviewProps {
   attachment: Attachment | undefined;
 }
 
-/**
- * Renders a fax/referral document attachment as an inline preview: images render as <img>,
- * everything else (PDFs) renders in an <iframe>. Shared by FaxDetailPanel and the referral
- * review screen so both panes look identical.
- */
+// Renders a fax/referral document attachment as an inline preview: images render as <img>,
+// everything else (PDFs) renders in an <iframe>. Shared by FaxDetailPanel and the referral
+// review screen so both panes look identical.
 export function FaxDocumentPreview({ attachment }: FaxDocumentPreviewProps): JSX.Element {
   const rawAttachmentUrl = useCachedBinaryUrl(attachment?.url);
   const attachmentUrl = isValidUrl(rawAttachmentUrl) ? rawAttachmentUrl : undefined;

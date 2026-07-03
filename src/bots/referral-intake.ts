@@ -75,7 +75,7 @@ async function extractBundle(content: string, clientId: string, clientSecret: st
   if (!response?.bundle) {
     throw new Error(`lang2fhir document-multi returned no bundle: ${response?.message ?? 'unknown error'}`);
   }
-  return response.bundle as unknown as object;
+  return response.bundle;
 }
 
 export async function handler(medplum: MedplumClient, event: BotEvent<ReferralBotInput>): Promise<object> {

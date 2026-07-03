@@ -41,6 +41,7 @@ import {
   ReferralProcessingProvider,
 } from './components/fax/ReferralProcessingProvider';
 import { FaxPage } from './pages/fax/FaxPage';
+import { ReferralReviewPage } from './pages/fax/ReferralReviewPage';
 import { GetStartedPage } from './pages/getstarted/GetStartedPage';
 import { DoseSpotFavoritesPage } from './pages/integrations/DoseSpotFavoritesPage';
 import { DoseSpotNotificationsPage } from './pages/integrations/DoseSpotNotificationsPage';
@@ -274,6 +275,7 @@ export function App(): JSX.Element | null {
               <Route path="/Task" element={<TasksPage />} />
               <Route path="/Task/:taskId" element={<TasksPage />} />
               <Route path="/Fax/Communication" element={<FaxPage />} />
+              <Route path="/Fax/Communication/:faxId/review" element={<ReferralReviewPage />} />
               <Route path="/Fax/Communication/:faxId" element={<FaxPage />} />
               <Route path="/onboarding" element={<IntakeFormPage />} />
               <Route path="/Calendar/Schedule" element={<SchedulePage />} />

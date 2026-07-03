@@ -1,0 +1,29 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--app-shell-header-height, 0));
+  overflow: hidden;
+}
+
+.body {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+
+.leftPane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  border-right: 1px solid light-dark(var(--mantine-color-gray-3), var(--mantine-color-gray-8));
+}
+
+.rightPane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
