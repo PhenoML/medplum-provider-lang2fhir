@@ -1,0 +1,73 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:70cfbfda-718a-47ef-88c9-024c0e0f0ae3",
+      "resource": {
+        "resourceType": "Binary",
+        "contentType": "application/pdf",
+        "data": "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29udGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAyMTE3ID4+CnN0cmVhbQpCVAovRjEgMTAgVGYKMTMgVEwKNTAgNzYwIFRkCihCRUhBVklPUkFMIEhFQUxUSCBSRUZFUlJBTCkgVGogVCoKKFN1bnJpc2UgQ29tbXVuaXR5IEhlYWx0aCAtIFByaW1hcnkgQ2FyZSBDbGluaWMpIFRqIFQqCihEYXRlIG9mIFJlZmVycmFsOiAyMDI2LTA2LTE1KSBUaiBUKgooKSBUaiBUKgooUkVGRVJSSU5HIFBST1ZJREVSKSBUaiBUKgooTmFtZTogRHIuIEFsYW4gV2hpdGZpZWxkLCBNRCkgVGogVCoKKE5QSTogMTkwMjkzODQ3NSkgVGogVCoKKENsaW5pYzogU3VucmlzZSBDb21tdW5pdHkgSGVhbHRoKSBUaiBUKgooUGhvbmU6IFwoNDE1XCkgNTU1LTAxOTIpIFRqIFQqCigpIFRqIFQqCihQQVRJRU5UIElORk9STUFUSU9OKSBUaiBUKgooTmFtZTogTWF5YSBDaGVuKSBUaiBUKgooRGF0ZSBvZiBCaXJ0aDogMTk5MS0wMy0yMikgVGogVCoKKFNleDogRmVtYWxlKSBUaiBUKgooTVJOOiBTQ0gtNDgzMDE3MikgVGogVCoKKFBob25lOiBcKDQxNVwpIDU1NS0wNzMzKSBUaiBUKgooQWRkcmVzczogMjE0IExhcmtzcHVyIEF2ZSwgU2FuIEZyYW5jaXNjbywgQ0EgOTQxMTApIFRqIFQqCihJbnN1cmFuY2U6IEJsdWVTaGllbGQgUFBPLCBNZW1iZXIgSUQgQlM5OTgyMTEpIFRqIFQqCigpIFRqIFQqCihSRUZFUlJFRCBUTykgVGogVCoKKFNlcnZpY2U6IE91dHBhdGllbnQgQmVoYXZpb3JhbCBIZWFsdGggLyBQc3ljaGlhdHJ5KSBUaiBUKgooUmVhc29uIGZvciBSZWZlcnJhbDogRXZhbHVhdGlvbiBhbmQgbWFuYWdlbWVudCBvZiB3b3JzZW5pbmcgYW54aWV0eSBhbmQgZGVwcmVzc2lvbikgVGogVCoKKCkgVGogVCoKKENMSU5JQ0FMIFNVTU1BUlkpIFRqIFQqCihNcy4gQ2hlbiBpcyBhIDM1LXllYXItb2xkIHdvbWFuIHByZXNlbnRpbmcgd2l0aCBhIDQtbW9udGggaGlzdG9yeSBvZikgVGogVCoKKHBlcnNpc3RlbnQgbG93IG1vb2QsIGFuaGVkb25pYSwgZmF0aWd1ZSwgcG9vciBjb25jZW50cmF0aW9uLCBhbmQgZGlmZmljdWx0eSkgVGogVCoKKHNsZWVwaW5nLiBTaGUgYWxzbyByZXBvcnRzIGV4Y2Vzc2l2ZSB3b3JyeSwgcmVzdGxlc3NuZXNzLCBhbmQgaXJyaXRhYmlsaXR5KSBUaiBUKgoob2NjdXJyaW5nIG1vc3QgZGF5cy4gU3ltcHRvbXMgYXJlIGltcGFpcmluZyB3b3JrIHBlcmZvcm1hbmNlIGFuZCBkYWlseSkgVGogVCoKKGZ1bmN0aW9uaW5nLiBObyBwcmlvciBwc3ljaGlhdHJpYyBob3NwaXRhbGl6YXRpb25zLiBEZW5pZXMgYWN0aXZlIHN1aWNpZGFsIGlkZWF0aW9uLikgVGogVCoKKCkgVGogVCoKKFJFQ0VOVCBWSVRBTFMgXChtZWFzdXJlZCAyMDI2LTA2LTEwXCkpIFRqIFQqCihCbG9vZCBQcmVzc3VyZTogMTI4LzgyIG1tSGcpIFRqIFQqCihIZWFydCBSYXRlOiA3NiBicG0pIFRqIFQqCihSZXNwaXJhdG9yeSBSYXRlOiAxNCBicmVhdGhzL21pbikgVGogVCoKKEJvZHkgVGVtcGVyYXR1cmU6IDk4LjQgRikgVGogVCoKKEJvZHkgV2VpZ2h0OiAxNTAgbGIpIFRqIFQqCihCb2R5IE1hc3MgSW5kZXg6IDI0LjIga2cvbTIpIFRqIFQqCigpIFRqIFQqCihTQ1JFRU5JTkcgU0NPUkVTIFwoYWRtaW5pc3RlcmVkIDIwMjYtMDYtMTAgYnkgcmVmZXJyaW5nIHByb3ZpZGVyXCkpIFRqIFQqCihQSFEtOSB0b3RhbCBzY29yZTogMTggXChtb2RlcmF0ZWx5IHNldmVyZSBkZXByZXNzaW9uXCkpIFRqIFQqCihHQUQtNyB0b3RhbCBzY29yZTogMTUgXChzZXZlcmUgYW54aWV0eVwpKSBUaiBUKgooKSBUaiBUKgooRElBR05PU0VTKSBUaiBUKgooMS4gR2VuZXJhbGl6ZWQgYW54aWV0eSBkaXNvcmRlciBcKEY0MS4xXCkpIFRqIFQqCigyLiBNYWpvciBkZXByZXNzaXZlIGRpc29yZGVyLCByZWN1cnJlbnQsIG1vZGVyYXRlIFwoRjMzLjFcKSkgVGogVCoKKCkgVGogVCoKKENVUlJFTlQgTUVESUNBVElPTlMpIFRqIFQqCihTZXJ0cmFsaW5lIDUwIG1nIGRhaWx5IFwoc3RhcnRlZCAzIHdlZWtzIGFnb1wpKSBUaiBUKgooKSBUaiBUKgooUkVRVUVTVEVEIFNFUlZJQ0VTKSBUaiBUKgooUHN5Y2hpYXRyaWMgZXZhbHVhdGlvbiwgbWVkaWNhdGlvbiBtYW5hZ2VtZW50LCBhbmQgaW5pdGlhdGlvbiBvZiBwc3ljaG90aGVyYXB5LikgVGogVCoKKFBsZWFzZSBjb250aW51ZSBHQUQtNyBhbmQgUEhRLTkgbW9uaXRvcmluZyBhdCBpbnRha2UuKSBUaiBUKgpFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iagp4cmVmCjAgNgowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA1OCAwMDAwMCBuIAowMDAwMDAwMTE1IDAwMDAwIG4gCjAwMDAwMDAyNDEgMDAwMDAgbiAKMDAwMDAwMjQxMCAwMDAwMCBuIAp0cmFpbGVyCjw8IC9TaXplIDYgL1Jvb3QgMSAwIFIgPj4Kc3RhcnR4cmVmCjI0ODAKJSVFT0Y="
+      },
+      "request": {
+        "method": "POST",
+        "url": "Binary"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:d7d46972-aa74-45aa-a98d-3c12a6f3703d",
+      "resource": {
+        "resourceType": "Communication",
+        "status": "completed",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://medplum.com/fhir/CodeSystem/fax-direction",
+                "code": "inbound"
+              }
+            ]
+          }
+        ],
+        "medium": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationMode",
+                "code": "FAXWRIT"
+              }
+            ]
+          }
+        ],
+        "sent": "2026-07-03T14:48:46.766Z",
+        "extension": [
+          {
+            "url": "https://efax.com/originating-fax-number",
+            "valueString": "15551234567"
+          }
+        ],
+        "topic": {
+          "text": "Behavioral Health Referral - Maya Chen"
+        },
+        "note": [
+          {
+            "text": "Please review attached referral and schedule intake."
+          }
+        ],
+        "payload": [
+          {
+            "contentAttachment": {
+              "contentType": "application/pdf",
+              "url": "urn:uuid:70cfbfda-718a-47ef-88c9-024c0e0f0ae3",
+              "title": "Referral - Maya Chen.pdf"
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "POST",
+        "url": "Communication"
+      }
+    }
+  ]
+}

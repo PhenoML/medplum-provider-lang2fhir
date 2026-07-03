@@ -10,6 +10,7 @@ import {
   IconChecklist,
   IconClipboardCheck,
   IconClipboardText,
+  IconFileText,
   IconForms,
   IconMail,
   IconMicroscope,
@@ -35,7 +36,12 @@ const PROVIDER_HIDE_GET_STARTED_SETTING = 'hideGetStarted';
 import { UploadDataPage } from './pages/UploadDataPage';
 import { EncounterChartPage } from './pages/encounter/EncounterChartPage';
 import { EncounterModal } from './pages/encounter/EncounterModal';
+import {
+  ReferralProcessingIndicator,
+  ReferralProcessingProvider,
+} from './components/fax/ReferralProcessingProvider';
 import { FaxPage } from './pages/fax/FaxPage';
+import { ReferralReviewPage } from './pages/fax/ReferralReviewPage';
 import { GetStartedPage } from './pages/getstarted/GetStartedPage';
 import { DoseSpotFavoritesPage } from './pages/integrations/DoseSpotFavoritesPage';
 import { DoseSpotNotificationsPage } from './pages/integrations/DoseSpotNotificationsPage';
@@ -188,6 +194,7 @@ export function App(): JSX.Element | null {
                 links: [
                   { icon: <IconClipboardText />, label: 'Upload Questionnaire', href: '/upload/Questionnaire' },
                   { icon: <IconForms />, label: 'Upload Questionnaire Response', href: '/upload/QuestionnaireResponse' },
+                  { icon: <IconFileText />, label: 'Upload Referral', href: '/upload/referral' },
                 ],
               },
               {
@@ -204,6 +211,8 @@ export function App(): JSX.Element | null {
       resourceTypeSearchDisabled={true}
       spotlightPatientsOnly={true}
     >
+      <ReferralProcessingProvider>
+      <ReferralProcessingIndicator />
       <Suspense fallback={<Loading />}>
         <Routes>
           {profile ? (
@@ -266,6 +275,7 @@ export function App(): JSX.Element | null {
               <Route path="/Task" element={<TasksPage />} />
               <Route path="/Task/:taskId" element={<TasksPage />} />
               <Route path="/Fax/Communication" element={<FaxPage />} />
+              <Route path="/Fax/Communication/:faxId/review" element={<ReferralReviewPage />} />
               <Route path="/Fax/Communication/:faxId" element={<FaxPage />} />
               <Route path="/onboarding" element={<IntakeFormPage />} />
               <Route path="/Calendar/Schedule" element={<SchedulePage />} />
@@ -299,6 +309,7 @@ export function App(): JSX.Element | null {
           )}
         </Routes>
       </Suspense>
+      </ReferralProcessingProvider>
     </AppShell>
   );
 }

@@ -35,6 +35,10 @@ const Bots: BotDescription[] = [
   {
     src: 'src/bots/phenoml-ips-summary.ts',
     dist: 'dist/phenoml-ips-summary.js',
+  },
+  {
+    src: 'src/bots/referral-intake.ts',
+    dist: 'dist/referral-intake.js',
   }
 ];
 
@@ -60,7 +64,7 @@ async function main(): Promise<void> {
           id: botIdPlaceholder,
           name: botName,
           runtimeVersion: 'awslambda',//IMPORTANT: USE awslambda for production as per: https://www.medplum.com/docs/bots/running-bots-locally. Use vmcontext to run locally.
-          timeout: 60,
+          timeout: 120,
           sourceCode: {
             contentType: ContentType.TYPESCRIPT,
             url: srcEntry.fullUrl,

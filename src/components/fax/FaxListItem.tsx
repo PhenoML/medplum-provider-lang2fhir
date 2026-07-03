@@ -6,7 +6,7 @@ import type { Communication, Organization } from '@medplum/fhirtypes';
 import { MedplumLink, useResource } from '@medplum/react';
 import cx from 'clsx';
 import type { JSX } from 'react';
-import { formatFaxNumber } from './fax.utils';
+import { cleanFaxText, formatFaxNumber } from './fax.utils';
 import classes from './FaxListItem.module.css';
 
 export type FaxTab = 'inbox' | 'sent';
@@ -41,7 +41,7 @@ export function FaxListItem({ fax, selectedFax, activeTab, getFaxUri, hideDivide
   const firstLine =
     activeTab === 'sent' ? getRecipientDisplay(fax, recipient as Organization | undefined) : getSenderOrRecipient(fax);
 
-  const subjectLine = fax.topic?.text ?? '(No Subject)';
+  const subjectLine = cleanFaxText(fax.topic?.text) || '(No Subject)';
   const datePatientParts = [fax.sent ? formatDate(fax.sent) : null, patient ? getDisplayString(patient) : null].filter(
     Boolean
   );

@@ -1,12 +1,12 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Button, Container, Text, Box, LoadingOverlay, Alert, Space } from '@mantine/core';
+import { Button, Container, Text, Box, LoadingOverlay, Alert, Space, Stack, Divider } from '@mantine/core';
 import type { MedplumClient } from '@medplum/core';
 import { normalizeErrorString, getReferenceString } from '@medplum/core';
-import { AttachmentButton, Document, useMedplum, useMedplumProfile, ResourceBadge, ResourceInput } from '@medplum/react';
+import { AttachmentButton, AttachmentDisplay, Document, useMedplum, useMedplumProfile, ResourceBadge, ResourceInput } from '@medplum/react';
 import { useNavigate, useParams } from 'react-router';
 import { showNotification } from '@mantine/notifications';
-import type { Attachment, Bot, Bundle, Questionnaire, QuestionnaireResponse, Resource, Patient, OperationOutcome, DocumentReference,  BundleEntry } from '@medplum/fhirtypes';
+import type { Attachment, Bot, Bundle, Extension, Questionnaire, QuestionnaireResponse, Resource, Patient, OperationOutcome, DocumentReference,  BundleEntry } from '@medplum/fhirtypes';
 import { IconCircleCheck, IconCircleOff, IconUpload, IconAlertCircle, IconRobot } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useCallback, useState } from 'react';
@@ -24,6 +24,7 @@ export function UploadDataPage(): JSX.Element {
   const [error, setError] = useState<string>();
   const [selectedPatient, setSelectedPatient] = useState<Patient>();
   const [selectedQuestionnaire, setSelectedQuestionnaire] = useState<Questionnaire>();
+  const [referralResult, setReferralResult] = useState<ReferralResult>();
 
   const handleFileUpload = useCallback(async (attachment: Attachment) => {
     setPageDisabled(true);
@@ -31,9 +32,18 @@ export function UploadDataPage(): JSX.Element {
       showUploadNotification();
       showProcessingNotification();
 
+      // Referrals produce a transaction Bundle of many resource types rather than a single
+      // resource, so they use a distinct path that persists the Bundle and shows a results panel.
+      if (dataType === 'referral') {
+        const result = await processReferral(medplum, attachment);
+        setReferralResult(result);
+        showSuccessNotification('Referral processed successfully');
+        return;
+      }
+
       const generatedResource = await processDocument(
-        medplum, 
-        attachment, 
+        medplum,
+        attachment,
         dataType as string,
         selectedPatient,
         selectedQuestionnaire
@@ -127,7 +137,42 @@ export function UploadDataPage(): JSX.Element {
             </AttachmentButton>
           </>
         )}
+        {dataType === 'referral' && referralResult && (
+          <>
+            <Space h="xl" />
+            <Divider label="Extracted resources" labelPosition="center" mb="md" />
+            {referralResult.patientRef && (
+              <Button
+                fullWidth
+                mb="md"
+                onClick={() => {
+                  const navResult = navigate(`/${referralResult.patientRef}`);
+                  if (navResult) {
+                    navResult.catch(console.error);
+                  }
+                }}
+              >
+                View Patient Chart
+              </Button>
+            )}
+            <Stack gap="xs" mb="md">
+              {referralResult.created.map((item) => (
+                <ResourceBadge key={item.reference} value={{ reference: item.reference }} link />
+              ))}
+            </Stack>
+            <Divider label="Source document" labelPosition="center" mb="md" />
+            <AttachmentDisplay value={referralResult.attachment} />
+          </>
+        )}
         {(dataType === 'QuestionnaireResponse' || dataType === 'Questionnaire') && (
+          <>
+            <Space h="xl" />
+            <Box ta="center">
+              <PhenoMLBranding />
+            </Box>
+          </>
+        )}
+        {dataType === 'referral' && (
           <>
             <Space h="xl" />
             <Box ta="center">
@@ -196,6 +241,73 @@ async function processDocument(
 
   const resource = await medplum.createResource(result);
   return resource;
+}
+
+interface ReferralResult {
+  patientRef?: string;
+  created: { reference: string; display: string }[];
+  attachment: Attachment;
+}
+
+// Referral processing: a PDF referral is converted into a FHIR transaction Bundle of many
+// resource types (Patient, Conditions, etc.). The original PDF is retained as a
+// DocumentReference, the Bundle is persisted, and each created resource is linked back to the
+// source document via the shared source-document extension.
+async function processReferral(medplum: MedplumClient, attachment: Attachment): Promise<ReferralResult> {
+  const referralBot = await medplum.searchOne('Bot', { name: 'referral-intake' });
+  if (!referralBot?.id) {
+    throw new Error('Bot "referral-intake" not found or invalid');
+  }
+
+  // Retain the uploaded PDF as a DocumentReference (backed by a Binary).
+  const docref = await medplum.createResource<DocumentReference>({
+    resourceType: 'DocumentReference',
+    status: 'current',
+    content: [
+      {
+        attachment: attachment,
+      },
+    ],
+  });
+
+  // The bot returns a FHIR transaction Bundle of extracted resources.
+  const bundle = (await medplum.executeBot(referralBot.id, { docref })) as Bundle;
+
+  // Link every extracted resource back to the source document.
+  const sourceExtension: Extension = {
+    url: 'https://example.org/fhir/StructureDefinition/source-document',
+    valueReference: {
+      reference: `DocumentReference/${docref.id}`,
+      display: 'Source Document',
+    },
+  };
+  for (const entry of bundle.entry ?? []) {
+    const resource = entry.resource as { extension?: Extension[] } | undefined;
+    if (resource) {
+      resource.extension = [...(resource.extension ?? []), sourceExtension];
+    }
+  }
+
+  // Persist the Bundle.
+  const batchResult = await medplum.executeBatch(bundle);
+  const created = (batchResult.entry ?? [])
+    .map((e) => e.response?.location)
+    .filter((loc): loc is string => Boolean(loc))
+    .map((loc) => {
+      const reference = loc.split('/').slice(0, 2).join('/');
+      return { reference, display: reference };
+    });
+
+  // Link the source document to the created Patient so the PDF appears on the patient chart.
+  const patientRef = created.find((c) => c.reference.startsWith('Patient/'))?.reference;
+  if (patientRef && docref.id) {
+    await medplum.updateResource<DocumentReference>({
+      ...docref,
+      subject: { reference: patientRef },
+    });
+  }
+
+  return { patientRef, created, attachment };
 }
 
 
