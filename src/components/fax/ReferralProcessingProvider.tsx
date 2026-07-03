@@ -4,9 +4,11 @@ import { ActionIcon, Group, Loader, Paper, Text } from '@mantine/core';
 import { useMedplum } from '@medplum/react';
 import { IconCircleCheck, IconCircleX, IconX } from '@tabler/icons-react';
 import type { JSX } from 'react';
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { getReferralStatus } from '../../utils/referral';
+import type { ReferralStatus } from '../../utils/referral';
+import { cleanFaxText } from './fax.utils';
 
 type JobStatus = 'processing' | 'complete' | 'error';
 
@@ -33,7 +35,10 @@ export function useReferralProcessing(): ReferralProcessingContextValue {
   return useContext(ReferralProcessingContext);
 }
 
-const POLL_INTERVAL_MS = 4000;
+const DISCOVERY_INTERVAL_MS = 5000;
+// A fax stuck in 'processing' longer than this is treated as stale and not auto-surfaced, so a
+// failed/abandoned run doesn't pin the indicator open forever.
+const STALE_PROCESSING_MS = 10 * 60 * 1000;
 
 // App-level provider that tracks referral fax processing jobs so a status indicator can follow the
 // user across screens. Processing runs server-side (fire-and-forget bot) and status is durable on
@@ -41,11 +46,6 @@ const POLL_INTERVAL_MS = 4000;
 export function ReferralProcessingProvider({ children }: { children: React.ReactNode }): JSX.Element {
   const medplum = useMedplum();
   const [jobs, setJobs] = useState<ReferralJob[]>([]);
-  const jobsRef = useRef<ReferralJob[]>(jobs);
-
-  useEffect(() => {
-    jobsRef.current = jobs;
-  }, [jobs]);
 
   const track = useCallback((communicationId: string, label?: string) => {
     setJobs((prev) => [
@@ -58,35 +58,59 @@ export function ReferralProcessingProvider({ children }: { children: React.React
     setJobs((prev) => prev.filter((j) => j.communicationId !== communicationId));
   }, []);
 
-  const hasProcessing = jobs.some((j) => j.status === 'processing');
-
+  // Discover in-flight processing faxes from the server and reconcile tracked jobs. This makes the
+  // indicator appear and follow the user even when processing was started elsewhere or before a
+  // reload — not only when Process was clicked in this session (which calls track() for instant
+  // feedback). Completed/errored jobs stay until dismissed.
   useEffect(() => {
-    if (!hasProcessing) {
-      return undefined;
-    }
-    const interval = setInterval(() => {
-      const processing = jobsRef.current.filter((j) => j.status === 'processing');
-      processing.forEach((job) => {
-        medplum
-          .readResource('Communication', job.communicationId)
-          .then((comm) => {
-            const status = getReferralStatus(comm);
-            if (status && status !== 'processing') {
-              setJobs((prev) =>
-                prev.map((j) =>
-                  j.communicationId === job.communicationId
-                    ? { ...j, status: status === 'error' ? 'error' : 'complete' }
-                    : j
-                )
-              );
-            }
+    let cancelled = false;
+    const poll = (): void => {
+      medplum
+        .searchResources('Communication', 'category=inbound&_count=25&_sort=-_lastUpdated')
+        .then((results) => {
+          if (cancelled) {
             return undefined;
-          })
-          .catch(() => undefined);
-      });
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [hasProcessing, medplum]);
+          }
+          const serverStatus = new Map<string, ReferralStatus | undefined>();
+          const recentlyProcessing: { id: string; label: string }[] = [];
+          for (const comm of results) {
+            if (!comm.id) {
+              continue;
+            }
+            const status = getReferralStatus(comm);
+            serverStatus.set(comm.id, status);
+            const updatedAt = comm.meta?.lastUpdated ? Date.parse(comm.meta.lastUpdated) : 0;
+            if (status === 'processing' && Date.now() - updatedAt < STALE_PROCESSING_MS) {
+              recentlyProcessing.push({ id: comm.id, label: cleanFaxText(comm.topic?.text) || 'Referral fax' });
+            }
+          }
+          setJobs((prev) => {
+            const reconciled: ReferralJob[] = prev.map((job) => {
+              if (job.status !== 'processing') {
+                return job;
+              }
+              const status = serverStatus.get(job.communicationId);
+              if (status && status !== 'processing') {
+                return { ...job, status: status === 'error' ? 'error' : 'complete' };
+              }
+              return job;
+            });
+            const additions: ReferralJob[] = recentlyProcessing
+              .filter((rp) => !reconciled.some((j) => j.communicationId === rp.id))
+              .map((rp) => ({ communicationId: rp.id, label: rp.label, status: 'processing' }));
+            return [...reconciled, ...additions];
+          });
+          return undefined;
+        })
+        .catch(() => undefined);
+    };
+    poll();
+    const interval = setInterval(poll, DISCOVERY_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [medplum]);
 
   return (
     <ReferralProcessingContext.Provider value={{ track, jobs, dismiss }}>
