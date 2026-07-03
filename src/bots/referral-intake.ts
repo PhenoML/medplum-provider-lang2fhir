@@ -26,6 +26,10 @@ import { phenomlClient } from 'phenoml';
  * Required bot secrets: (You need to have an active PhenoML subscription to use this bot)
  * - PHENOML_CLIENT_ID: Your PhenoML API client id
  * - PHENOML_CLIENT_SECRET: Your PhenoML API client secret
+ * Optional bot secret:
+ * - PHENOML_BASE_URL: Your PhenoML environment base URL (e.g. https://phenohealth.app.pheno.ml).
+ *   Defaults to https://experiment.app.pheno.ml. Credentials are tied to a specific environment,
+ *   so set this if yours are not for the default host.
  */
 
 interface ReferralBotInput {
@@ -59,10 +63,15 @@ async function downloadBase64(medplum: MedplumClient, url: string): Promise<stri
   return Buffer.from(arrayBuffer).toString('base64');
 }
 
-async function extractBundle(content: string, clientId: string, clientSecret: string): Promise<object> {
+async function extractBundle(
+  content: string,
+  clientId: string,
+  clientSecret: string,
+  baseUrl: string
+): Promise<object> {
   // The SDK handles OAuth client-credentials auth automatically.
   // The API auto-detects the file type from the content's magic bytes.
-  const client = new phenomlClient({ clientId, clientSecret, baseUrl: PHENOML_BASE_URL });
+  const client = new phenomlClient({ clientId, clientSecret, baseUrl });
 
   // The document-multi endpoint returns a FHIR transaction Bundle of multiple resource types.
   // Passing provider: 'medplum' aligns the generated Bundle with Medplum-specific FHIR profiles.
@@ -84,6 +93,9 @@ export async function handler(medplum: MedplumClient, event: BotEvent<ReferralBo
   if (!clientId || !clientSecret) {
     throw new Error('PhenoML credentials (PHENOML_CLIENT_ID and PHENOML_CLIENT_SECRET) are required');
   }
+  // Base URL is tied to your PhenoML environment/tenant. Defaults to the shared experiment host;
+  // override with a PHENOML_BASE_URL secret (e.g. https://phenohealth.app.pheno.ml).
+  const baseUrl = event.secrets['PHENOML_BASE_URL']?.valueString || PHENOML_BASE_URL;
 
   const { communicationId, docref } = event.input;
 
@@ -93,7 +105,7 @@ export async function handler(medplum: MedplumClient, event: BotEvent<ReferralBo
       throw new Error('DocumentReference resource must have content.url');
     }
     const content = await downloadBase64(medplum, docref.content[0].attachment.url);
-    return extractBundle(content, clientId, clientSecret);
+    return extractBundle(content, clientId, clientSecret, baseUrl);
   }
 
   // ---- Fax mode: process the inbound fax Communication and stash the result. ----
@@ -111,7 +123,7 @@ export async function handler(medplum: MedplumClient, event: BotEvent<ReferralBo
     communication = await medplum.updateResource(withReferralStatus(communication, 'processing'));
 
     const content = await downloadBase64(medplum, sourceAttachment.url);
-    const bundle = await extractBundle(content, clientId, clientSecret);
+    const bundle = await extractBundle(content, clientId, clientSecret, baseUrl);
 
     // Stash the extracted Bundle as a JSON Binary and reference it from a new payload entry.
     const binary = await medplum.createResource<Binary>({
