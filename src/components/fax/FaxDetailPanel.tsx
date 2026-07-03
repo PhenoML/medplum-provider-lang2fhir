@@ -6,7 +6,15 @@ import { formatDateTime, getDisplayString, normalizeErrorString } from '@medplum
 import type { Communication, Organization, Patient, Reference } from '@medplum/fhirtypes';
 import { MedplumLink, useMedplum, useResource } from '@medplum/react';
 import { useCachedBinaryUrl } from '@medplum/react-hooks';
-import { IconCircleOff, IconClipboardCheck, IconDownload, IconRobot, IconSend, IconUserPlus } from '@tabler/icons-react';
+import {
+  IconCircleOff,
+  IconClipboardCheck,
+  IconDownload,
+  IconRefresh,
+  IconRobot,
+  IconSend,
+  IconUserPlus,
+} from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -129,9 +137,23 @@ export function FaxDetailPanel({ fax, onFaxChange }: FaxDetailPanelProps): JSX.E
 
                 <Group gap="xs">
                   {isInbound && referralStatus === 'processing' && (
-                    <Badge color="blue" variant="light" size="lg" leftSection={<Loader size={10} color="blue" />}>
-                      Processing…
-                    </Badge>
+                    <>
+                      <Badge color="blue" variant="light" size="lg" leftSection={<Loader size={10} color="blue" />}>
+                        Processing…
+                      </Badge>
+                      <Tooltip label="Reprocess (restart)" position="bottom" openDelay={500}>
+                        <ActionIcon
+                          variant="transparent"
+                          radius="xl"
+                          size={32}
+                          className="outline-icon-button"
+                          loading={isStartingProcess}
+                          onClick={handleProcess}
+                        >
+                          <IconRefresh size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </>
                   )}
                   {isInbound && referralStatus === 'ready-for-review' && (
                     <Button
