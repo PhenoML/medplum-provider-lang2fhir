@@ -15,6 +15,7 @@ import { AssignPatientModal } from './AssignPatientModal';
 import { formatFaxNumber } from './fax.utils';
 import classes from './FaxBoard.module.css';
 import { FaxDocumentPreview } from './FaxDocumentPreview';
+import { useReferralProcessing } from './ReferralProcessingProvider';
 import { SendFaxModal } from './SendFaxModal';
 
 interface FaxDetailPanelProps {
@@ -25,6 +26,7 @@ interface FaxDetailPanelProps {
 export function FaxDetailPanel({ fax, onFaxChange }: FaxDetailPanelProps): JSX.Element {
   const medplum = useMedplum();
   const navigate = useNavigate();
+  const { track } = useReferralProcessing();
   const patient = useResource(fax.subject);
   const [assignModalOpened, setAssignModalOpened] = useState(false);
   const [forwardModalOpened, setForwardModalOpened] = useState(false);
@@ -93,6 +95,8 @@ export function FaxDetailPanel({ fax, onFaxChange }: FaxDetailPanelProps): JSX.E
       medplum
         .executeBot(bot.id, { communicationId: fax.id })
         .catch((err) => console.error('referral-intake bot error', err));
+      // Register with the app-level tracker so a "Processing Faxes" indicator follows the user.
+      track(fax.id, fax.topic?.text ?? faxName);
       notifications.show({
         color: 'blue',
         icon: <IconRobot />,

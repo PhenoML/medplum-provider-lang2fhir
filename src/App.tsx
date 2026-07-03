@@ -36,6 +36,10 @@ const PROVIDER_HIDE_GET_STARTED_SETTING = 'hideGetStarted';
 import { UploadDataPage } from './pages/UploadDataPage';
 import { EncounterChartPage } from './pages/encounter/EncounterChartPage';
 import { EncounterModal } from './pages/encounter/EncounterModal';
+import {
+  ReferralProcessingIndicator,
+  ReferralProcessingProvider,
+} from './components/fax/ReferralProcessingProvider';
 import { FaxPage } from './pages/fax/FaxPage';
 import { GetStartedPage } from './pages/getstarted/GetStartedPage';
 import { DoseSpotFavoritesPage } from './pages/integrations/DoseSpotFavoritesPage';
@@ -206,6 +210,8 @@ export function App(): JSX.Element | null {
       resourceTypeSearchDisabled={true}
       spotlightPatientsOnly={true}
     >
+      <ReferralProcessingProvider>
+      <ReferralProcessingIndicator />
       <Suspense fallback={<Loading />}>
         <Routes>
           {profile ? (
@@ -301,6 +307,7 @@ export function App(): JSX.Element | null {
           )}
         </Routes>
       </Suspense>
+      </ReferralProcessingProvider>
     </AppShell>
   );
 }
