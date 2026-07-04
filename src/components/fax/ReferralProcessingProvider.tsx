@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 import { ActionIcon, Group, Loader, Paper, Text } from '@mantine/core';
-import { useMedplum } from '@medplum/react';
+import { useMedplum, useMedplumProfile } from '@medplum/react';
 import { IconCircleCheck, IconCircleX, IconX } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
@@ -45,6 +45,7 @@ const STALE_PROCESSING_MS = 10 * 60 * 1000;
 // the Communication, so this just polls the tracked Communications until they leave 'processing'.
 export function ReferralProcessingProvider({ children }: { children: React.ReactNode }): JSX.Element {
   const medplum = useMedplum();
+  const profile = useMedplumProfile();
   const [jobs, setJobs] = useState<ReferralJob[]>([]);
 
   const track = useCallback((communicationId: string, label?: string) => {
@@ -63,6 +64,12 @@ export function ReferralProcessingProvider({ children }: { children: React.React
   // reload — not only when Process was clicked in this session (which calls track() for instant
   // feedback). Completed/errored jobs stay until dismissed.
   useEffect(() => {
+    // Only poll while authenticated. This provider is mounted above the auth gate (it also wraps the
+    // sign-in screen), so polling this authenticated search while signed out 401s, which triggers the
+    // client's onUnauthenticated hard-redirect and an endless sign-in flash/redirect loop.
+    if (!profile) {
+      return undefined;
+    }
     let cancelled = false;
     const poll = (): void => {
       medplum
@@ -110,7 +117,7 @@ export function ReferralProcessingProvider({ children }: { children: React.React
       cancelled = true;
       clearInterval(interval);
     };
-  }, [medplum]);
+  }, [medplum, profile]);
 
   return (
     <ReferralProcessingContext.Provider value={{ track, jobs, dismiss }}>
