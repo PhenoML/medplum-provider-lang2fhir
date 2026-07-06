@@ -6,36 +6,34 @@ import { normalizeErrorString, normalizeOperationOutcome } from '@medplum/core';
 import type { OperationOutcome, Resource, ResourceType } from '@medplum/fhirtypes';
 import { Document, Loading, OperationOutcomeAlert, useMedplum } from '@medplum/react';
 import type { JSX } from 'react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { usePatient } from '../../hooks/usePatient';
+import { useScribeTranscription } from '../../hooks/useScribeTranscription';
 import { prependPatientPath } from '../patient/PatientPage.utils';
 import { PhenoMLBranding } from '../../components/PhenoMLBranding';
 import { IconSparkles, IconMicrophone, IconMicrophoneOff } from '@tabler/icons-react';
-import { env, pipeline } from '@huggingface/transformers';
 
 
 // Define which resource types don't require a patient
 const PATIENT_INDEPENDENT_RESOURCES = ['PlanDefinition', 'Questionnaire', 'ResearchStudy'] as const;
 type PatientIndependentResource = typeof PATIENT_INDEPENDENT_RESOURCES[number];
 
-env.allowLocalModels = false;
-env.useBrowserCache = true;
-
 export function ResourceLang2FHIRCreatePage(): JSX.Element {
   const medplum = useMedplum();
   const [outcome, setOutcome] = useState<OperationOutcome | undefined>();
-  const [inputText, setInputText] = useState<string>('');
+  const {
+    transcript: inputText,
+    setTranscript: setInputText,
+    isRecording,
+    isModelLoading,
+    isProcessing,
+    startRecording,
+    stopRecording,
+  } = useScribeTranscription();
   const navigate = useNavigate();
   const { patientId, resourceType } = useParams() as { patientId: string | undefined; resourceType: ResourceType };
   const [loading, setLoading] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isModelLoading, setIsModelLoading] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const whisperRef = useRef<any>(null);
-  const streamRef = useRef<MediaStream | null>(null);
 
 
   // Only fetch patient if the resource type requires it AND we have a patientId
@@ -51,97 +49,6 @@ export function ResourceLang2FHIRCreatePage(): JSX.Element {
       setLoadingPatient(false);
     }
   }, [patient]);
-
-  // Initialize Whisper model
-  useEffect(() => {
-    initWhisper().catch(console.error);
-  }, []);
-
-
-  const initWhisper = async (): Promise<void> => {
-    try {
-      setIsModelLoading(true);
-      whisperRef.current = await pipeline(
-        'automatic-speech-recognition',
-        'Xenova/whisper-tiny.en'
-      );
-      console.log('Whisper initialized');
-    } catch (error) {
-      console.error('Failed to initialize Whisper:', error);
-    } finally {
-      setIsModelLoading(false);
-    }
-  };
-
-  // Start recording
-  const startRecording = async (): Promise<void> => {
-    if (!whisperRef.current) {
-      await initWhisper();
-    }
-
-    try {
-      chunksRef.current = [];
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream; // Store stream for cleanup
-      const mediaRecorder = new MediaRecorder(stream);
-      
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/wav' });
-        transcribeAudio(audioBlob).catch(console.error);
-      };
-
-      mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start(1000); // Collect data every second
-      setIsRecording(true);
-    } catch (error) {
-      console.error('Error starting recording:', error);
-    }
-  };
-
-  // Stop recording
-  const stopRecording = (): void => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-    
-    // Stop all tracks in the stream
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-  };
-
-  // Transcribe audio
-  const transcribeAudio = async (audioBlob: Blob): Promise<void> => {
-    let audioContext: AudioContext | undefined;
-    
-    try {
-      setIsProcessing(true);
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      audioContext = new AudioContext({ sampleRate: 16000 });
-      const audioData = await audioContext.decodeAudioData(arrayBuffer);
-      const audioArray = audioData.getChannelData(0);
-      const result = await whisperRef.current(audioArray);
-      
-      setInputText(prev => {
-        const newText = prev + (prev.length > 0 ? ' ' : '') + result.text;
-        console.log('Updated text will be:', newText);
-        return newText;
-      });
-    } catch (error) {
-      console.error('Transcription error:', error);
-    } finally {
-      setIsProcessing(false);
-      await audioContext?.close();
-    }
-  };
 
   const handleSubmit = async (): Promise<void> => {
     try {

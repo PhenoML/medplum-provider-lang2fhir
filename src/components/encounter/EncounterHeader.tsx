@@ -200,6 +200,7 @@ export const EncounterHeader = (props: EncounterHeaderProps): JSX.Element => {
             onChange={handleTabChange}
             data={[
               { label: 'Note & Tasks', value: 'notes' },
+              { label: 'Scribe', value: 'scribe' },
               { label: 'Details & Billing', value: 'details' },
             ]}
             fullWidth

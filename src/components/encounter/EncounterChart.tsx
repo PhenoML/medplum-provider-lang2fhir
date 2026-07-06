@@ -16,6 +16,7 @@ import { showErrorNotification } from '../../utils/notifications';
 import { TaskPanel } from '../tasks/encounter/TaskPanel';
 import { BillingTab } from './BillingTab';
 import { EncounterHeader } from './EncounterHeader';
+import { ScribeTab } from './ScribeTab';
 import { SignAddendum } from './SignAddendum';
 
 const FHIR_ACT_REASON_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ActReason';
@@ -255,6 +256,13 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
                 />
               ))}
             </Stack>
+          )}
+          {activeTab === 'scribe' && (
+            <ScribeTab
+              encounter={encounter}
+              patient={patientResource}
+              disabled={chartNoteStatus === ChartNoteStatus.SignedAndLocked}
+            />
           )}
           {activeTab === 'details' && (
             <BillingTab

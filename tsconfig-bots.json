@@ -30,5 +30,6 @@
     "noEmit": false,
     "isolatedModules": true
   },
-  "include": ["src/bots/**/*.ts"]
+  "include": ["src/bots/**/*.ts"],
+  "exclude": ["src/bots/**/*.test.ts"]
 }
