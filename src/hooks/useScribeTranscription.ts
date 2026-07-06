@@ -1,43 +1,59 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { env, pipeline } from '@huggingface/transformers';
+import { useMedplum } from '@medplum/react';
 import { useEffect, useRef, useState } from 'react';
+import { executeBotByName } from '../utils/bots';
 
-// Browser-side speech-to-text using a Whisper model that runs entirely in the browser (no hosted
-// transcribe API). Powers the reusable ScribeTextarea so the mic can live on any free text box.
-//
-// The model is loaded lazily on the first recording (not on mount), so rendering a scribe-enabled
-// text box does not download a model until the user actually clicks the mic. Transcribed text is
-// delivered via the onTranscript callback rather than owned here, so the hook composes with any
-// controlled input.
+// Speech-to-text for the reusable ScribeTextarea. Audio is captured in the browser and transcribed
+// by the PhenoML voice API (https://developer.pheno.ml/reference/transcribe) via the voice-transcribe
+// Medplum bot — PhenoML credentials must stay server-side, so the browser posts the recorded audio to
+// the bot rather than calling the API directly. Transcribed text is delivered via the onTranscript
+// callback rather than owned here, so the hook composes with any controlled input.
 
-env.allowLocalModels = false;
-env.useBrowserCache = true;
-
-const WHISPER_MODEL = 'Xenova/whisper-tiny.en';
+// Prefer formats the PhenoML voice API accepts (OGG/WebM Opus, WAV, FLAC, MP3).
+const PREFERRED_MIME_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
 
 export interface UseScribeTranscriptionOptions {
-  /** Called with each transcribed chunk of text when a recording finishes. */
+  /** Called with the transcript when a recording finishes transcribing. */
   onTranscript?: (text: string) => void;
 }
 
 export interface UseScribeTranscription {
   isRecording: boolean;
-  isModelLoading: boolean;
+  /** True while a finished recording is being transcribed by the bot. */
   isProcessing: boolean;
-  /** True while the model is loading or an in-flight transcription is running. */
+  /** True while an in-flight transcription is running (disables the mic). */
   isBusy: boolean;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
 }
 
+function pickMimeType(): string | undefined {
+  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) {
+    return undefined;
+  }
+  return PREFERRED_MIME_TYPES.find((type) => MediaRecorder.isTypeSupported(type));
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // Result is a data URL ("data:<type>;base64,<data>"); strip the prefix.
+      const result = reader.result as string;
+      resolve(result.slice(result.indexOf(',') + 1));
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
 export function useScribeTranscription(options?: UseScribeTranscriptionOptions): UseScribeTranscription {
+  const medplum = useMedplum();
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isModelLoading, setIsModelLoading] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const whisperRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   // Keep the latest callback so async transcription always reports to the current handler/state.
@@ -46,48 +62,31 @@ export function useScribeTranscription(options?: UseScribeTranscriptionOptions):
     onTranscriptRef.current = options?.onTranscript;
   });
 
-  const initWhisper = async (): Promise<void> => {
-    if (whisperRef.current) {
-      return;
-    }
-    setIsModelLoading(true);
-    try {
-      whisperRef.current = await pipeline('automatic-speech-recognition', WHISPER_MODEL);
-    } finally {
-      setIsModelLoading(false);
-    }
-  };
-
   const transcribeAudio = async (audioBlob: Blob): Promise<void> => {
-    let audioContext: AudioContext | undefined;
     try {
       setIsProcessing(true);
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      audioContext = new AudioContext({ sampleRate: 16000 });
-      const audioData = await audioContext.decodeAudioData(arrayBuffer);
-      const audioArray = audioData.getChannelData(0);
-      const result = await whisperRef.current(audioArray);
-      if (result?.text) {
-        onTranscriptRef.current?.(result.text);
+      const audio = await blobToBase64(audioBlob);
+      const { transcript } = await executeBotByName<{ transcript: string }>(medplum, 'voice-transcribe', {
+        audio,
+        contentType: audioBlob.type || undefined,
+      });
+      if (transcript) {
+        onTranscriptRef.current?.(transcript);
       }
     } catch (error) {
       console.error('Transcription error:', error);
     } finally {
       setIsProcessing(false);
-      await audioContext?.close();
     }
   };
 
   const startRecording = async (): Promise<void> => {
-    // Lazily load the model on first use so scribe-enabled text boxes don't fetch a model just to render.
-    if (!whisperRef.current) {
-      await initWhisper();
-    }
     try {
       chunksRef.current = [];
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      const mediaRecorder = new MediaRecorder(stream);
+      const mimeType = pickMimeType();
+      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -96,7 +95,7 @@ export function useScribeTranscription(options?: UseScribeTranscriptionOptions):
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/wav' });
+        const audioBlob = new Blob(chunksRef.current, { type: mediaRecorder.mimeType });
         transcribeAudio(audioBlob).catch(console.error);
       };
 
@@ -121,9 +120,8 @@ export function useScribeTranscription(options?: UseScribeTranscriptionOptions):
 
   return {
     isRecording,
-    isModelLoading,
     isProcessing,
-    isBusy: isModelLoading || isProcessing,
+    isBusy: isProcessing,
     startRecording,
     stopRecording,
   };

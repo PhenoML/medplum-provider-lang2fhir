@@ -14,12 +14,6 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { GAD7_QUESTIONNAIRE_URL, PHQ9_QUESTIONNAIRE_URL } from '../../utils/screening';
 import { ScribePanel } from './ScribePanel';
 
-// The scribe transcription hook loads a browser Whisper model — stub it so tests don't fetch a model.
-vi.mock('@huggingface/transformers', () => ({
-  env: {},
-  pipeline: vi.fn().mockResolvedValue(vi.fn()),
-}));
-
 const ORDINAL = 'http://hl7.org/fhir/StructureDefinition/ordinalValue';
 
 function screeningQuestionnaire(url: string, title: string, linkId: string): Questionnaire {

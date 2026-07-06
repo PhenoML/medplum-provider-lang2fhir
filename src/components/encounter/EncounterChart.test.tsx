@@ -12,12 +12,6 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { EncounterChart } from './EncounterChart';
 
-// The chart note and screening scribe use a browser Whisper model — stub it so tests don't fetch one.
-vi.mock('@huggingface/transformers', () => ({
-  env: {},
-  pipeline: vi.fn().mockResolvedValue(vi.fn()),
-}));
-
 const mockPractitioner: WithId<Practitioner> = {
   resourceType: 'Practitioner',
   id: 'practitioner-123',
