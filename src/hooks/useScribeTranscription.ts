@@ -4,30 +4,34 @@ import { env, pipeline } from '@huggingface/transformers';
 import { useEffect, useRef, useState } from 'react';
 
 // Browser-side speech-to-text using a Whisper model that runs entirely in the browser (no hosted
-// transcribe API). Extracted from ResourceLang2FHIRCreatePage so the visit-scribe flow (and later
-// phases) can reuse the same capture mechanism. Text can also be set/pasted directly, so the flow
-// works without a microphone.
+// transcribe API). Powers the reusable ScribeTextarea so the mic can live on any free text box.
+//
+// The model is loaded lazily on the first recording (not on mount), so rendering a scribe-enabled
+// text box does not download a model until the user actually clicks the mic. Transcribed text is
+// delivered via the onTranscript callback rather than owned here, so the hook composes with any
+// controlled input.
 
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 
 const WHISPER_MODEL = 'Xenova/whisper-tiny.en';
 
+export interface UseScribeTranscriptionOptions {
+  /** Called with each transcribed chunk of text when a recording finishes. */
+  onTranscript?: (text: string) => void;
+}
+
 export interface UseScribeTranscription {
-  /** The accumulated transcript. Editable/pasteable via setTranscript. */
-  transcript: string;
-  setTranscript: React.Dispatch<React.SetStateAction<string>>;
   isRecording: boolean;
   isModelLoading: boolean;
   isProcessing: boolean;
-  /** True while the model or an in-flight transcription blocks recording/submit. */
+  /** True while the model is loading or an in-flight transcription is running. */
   isBusy: boolean;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
 }
 
-export function useScribeTranscription(): UseScribeTranscription {
-  const [transcript, setTranscript] = useState('');
+export function useScribeTranscription(options?: UseScribeTranscriptionOptions): UseScribeTranscription {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isModelLoading, setIsModelLoading] = useState(false);
@@ -36,24 +40,23 @@ export function useScribeTranscription(): UseScribeTranscription {
   const whisperRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  // Keep the latest callback so async transcription always reports to the current handler/state.
+  const onTranscriptRef = useRef(options?.onTranscript);
+  useEffect(() => {
+    onTranscriptRef.current = options?.onTranscript;
+  });
+
   const initWhisper = async (): Promise<void> => {
     if (whisperRef.current) {
       return;
     }
+    setIsModelLoading(true);
     try {
-      setIsModelLoading(true);
       whisperRef.current = await pipeline('automatic-speech-recognition', WHISPER_MODEL);
-    } catch (error) {
-      console.error('Failed to initialize Whisper:', error);
     } finally {
       setIsModelLoading(false);
     }
   };
-
-  // Warm up the model on mount so the mic responds quickly.
-  useEffect(() => {
-    initWhisper().catch(console.error);
-  }, []);
 
   const transcribeAudio = async (audioBlob: Blob): Promise<void> => {
     let audioContext: AudioContext | undefined;
@@ -64,7 +67,9 @@ export function useScribeTranscription(): UseScribeTranscription {
       const audioData = await audioContext.decodeAudioData(arrayBuffer);
       const audioArray = audioData.getChannelData(0);
       const result = await whisperRef.current(audioArray);
-      setTranscript((prev) => prev + (prev.length > 0 ? ' ' : '') + result.text);
+      if (result?.text) {
+        onTranscriptRef.current?.(result.text);
+      }
     } catch (error) {
       console.error('Transcription error:', error);
     } finally {
@@ -74,6 +79,7 @@ export function useScribeTranscription(): UseScribeTranscription {
   };
 
   const startRecording = async (): Promise<void> => {
+    // Lazily load the model on first use so scribe-enabled text boxes don't fetch a model just to render.
     if (!whisperRef.current) {
       await initWhisper();
     }
@@ -114,8 +120,6 @@ export function useScribeTranscription(): UseScribeTranscription {
   };
 
   return {
-    transcript,
-    setTranscript,
     isRecording,
     isModelLoading,
     isProcessing,

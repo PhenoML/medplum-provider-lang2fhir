@@ -3,6 +3,7 @@
 import type { BotEvent, MedplumClient } from '@medplum/core';
 import type { Questionnaire, QuestionnaireResponse } from '@medplum/fhirtypes';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import type { ScribeFillInput } from './scribe-fill';
 import { buildScribePrompt, handler, reconcileResponse } from './scribe-fill';
 
 // Mock the PhenoML SDK so no network call is made; the bot only uses phenomlClient().lang2Fhir.create.
@@ -42,14 +43,14 @@ const questionnaire: Questionnaire = {
   ],
 };
 
-function makeEvent(input: unknown): BotEvent {
+function makeEvent(input: ScribeFillInput): BotEvent<ScribeFillInput> {
   return {
     input,
     secrets: {
       PHENOML_CLIENT_ID: { name: 'PHENOML_CLIENT_ID', valueString: 'id' },
       PHENOML_CLIENT_SECRET: { name: 'PHENOML_CLIENT_SECRET', valueString: 'secret' },
     },
-  } as unknown as BotEvent;
+  } as unknown as BotEvent<ScribeFillInput>;
 }
 
 const medplum = {} as unknown as MedplumClient;
@@ -106,7 +107,7 @@ describe('handler', () => {
   });
 
   test('throws when PhenoML credentials are missing', async () => {
-    const event = { input: { transcript: 'x', questionnaire }, secrets: {} } as unknown as BotEvent;
+    const event = { input: { transcript: 'x', questionnaire }, secrets: {} } as unknown as BotEvent<ScribeFillInput>;
     await expect(handler(medplum, event)).rejects.toThrow(/PhenoML credentials/);
   });
 

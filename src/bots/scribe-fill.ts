@@ -34,7 +34,7 @@ import { phenomlClient } from 'phenoml';
  * - PHENOML_BASE_URL: Your PhenoML environment base URL. Defaults to https://experiment.app.pheno.ml.
  */
 
-interface ScribeFillInput {
+export interface ScribeFillInput {
   transcript: string;
   questionnaire: Questionnaire;
   patient?: Patient;

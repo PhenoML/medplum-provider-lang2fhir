@@ -12,6 +12,12 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { EncounterChart } from './EncounterChart';
 
+// The chart note and screening scribe use a browser Whisper model — stub it so tests don't fetch one.
+vi.mock('@huggingface/transformers', () => ({
+  env: {},
+  pipeline: vi.fn().mockResolvedValue(vi.fn()),
+}));
+
 const mockPractitioner: WithId<Practitioner> = {
   resourceType: 'Practitioner',
   id: 'practitioner-123',
@@ -99,7 +105,8 @@ describe('EncounterChart', () => {
       expect(screen.getByText('Fill chart note')).toBeInTheDocument();
     });
 
-    const textarea = screen.getByRole('textbox');
+    const chartNoteCard = screen.getByText('Fill chart note').closest('.mantine-Card-root');
+    const textarea = chartNoteCard?.querySelector('textarea');
     expect(textarea).toBeInTheDocument();
     expect(textarea).toHaveValue('Test clinical note');
   });
@@ -114,7 +121,8 @@ describe('EncounterChart', () => {
       expect(screen.getByText('Fill chart note')).toBeInTheDocument();
     });
 
-    const textarea = screen.getByRole('textbox');
+    const chartNoteCard = screen.getByText('Fill chart note').closest('.mantine-Card-root');
+    const textarea = chartNoteCard?.querySelector('textarea') as HTMLTextAreaElement;
     await user.clear(textarea);
     await user.type(textarea, 'Updated note');
 
@@ -241,7 +249,8 @@ describe('EncounterChart', () => {
       expect(screen.getByText('Fill chart note')).toBeInTheDocument();
     });
 
-    const textarea = screen.getByRole('textbox');
+    const chartNoteCard = screen.getByText('Fill chart note').closest('.mantine-Card-root');
+    const textarea = chartNoteCard?.querySelector('textarea');
     expect(textarea).not.toBeDisabled();
   });
 
