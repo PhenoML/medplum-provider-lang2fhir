@@ -76,7 +76,7 @@ Post-visit note, dictated. This is a 34-year-old patient seen today for a
 follow-up of anxiety and low mood, reporting on the last two weeks.
 
 On the anxiety side: the patient has been feeling nervous, anxious, or on
-edge nearly every day, and reports being unable to stop or control the
+edge, and reports being unable to stop or control the
 worrying nearly every day. They describe worrying too much about different
 things more than half the days, with trouble relaxing nearly every day.
 They've been so restless that it's hard to sit still on several days, are
