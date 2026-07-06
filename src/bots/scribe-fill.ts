@@ -5,27 +5,38 @@ import type {
   Encounter,
   Patient,
   Questionnaire,
-  QuestionnaireItem,
   QuestionnaireResponse,
-  QuestionnaireResponseItem,
-  QuestionnaireResponseItemAnswer,
   Reference,
+  StructureDefinition,
 } from '@medplum/fhirtypes';
+import { Buffer } from 'buffer';
 import { phenomlClient } from 'phenoml';
+import {
+  buildQuestionnaireResponseProfile,
+  composeExtractionText,
+  IMPLEMENTATION_GUIDE,
+  profileContextFor,
+} from './buildProfile';
+import { postValidate } from './postValidate';
 
 /**
  * A Medplum Bot that pre-fills a screening Questionnaire (e.g. GAD-7 / PHQ-9) from a visit
- * transcript using the PhenoML lang2fhir create API.
+ * transcript by conforming lang2fhir output to an auto-generated QuestionnaireResponse profile.
  *
- * This is a thin wrapper over the same lang2fhir/create call that lang2fhir-create uses: the SDK's
- * create request only accepts { version, resource, text }, with no field for the target
- * Questionnaire, so this bot shapes a prompt that embeds the questionnaire's items, linkIds, and
- * scored answer options alongside the transcript. It then reconciles the model's answers back onto
- * the source questionnaire so the returned QuestionnaireResponse uses the exact linkIds and answer
- * codes the QuestionnaireForm expects.
+ * Pipeline:
+ *   1. buildQuestionnaireResponseProfile(questionnaire) — deterministically synthesize a
+ *      StructureDefinition that profiles QuestionnaireResponse for this exact form (pure code).
+ *   2. Ensure the profile exists in Medplum — look it up by content-derived url; if it does not
+ *      match deterministically, create it on the fly so profiles are cached/inspectable.
+ *   3. Register the profile with PhenoML via lang2Fhir.uploadProfile (once per warm session;
+ *      "already exists" is treated as success).
+ *   4. lang2Fhir.create({ resource: <profileId>, text }) — conform the output to the profile. The
+ *      text embeds a compact "question key" (linkId/text/type/allowed codes) ahead of the transcript.
+ *   5. postValidate — treat the model output as untrusted: validate against the questionnaire, stamp
+ *      required fields, and return the QuestionnaireResponse for clinician review/edit.
  *
- * Like the Phase 1 referral-intake bot, this bot does NOT persist anything — it returns the
- * QuestionnaireResponse for clinician review/edit, and the UI saves it at sign-off.
+ * Like the Phase 1 referral-intake bot, this bot does NOT persist the QuestionnaireResponse — the UI
+ * saves it at sign-off.
  *
  * Required bot secrets: (You need to have an active PhenoML subscription to use this bot)
  * - PHENOML_CLIENT_ID: Your PhenoML API client id
@@ -42,143 +53,80 @@ export interface ScribeFillInput {
 }
 
 const DEFAULT_PHENOML_BASE_URL = 'https://experiment.app.pheno.ml';
-// Standard FHIR extension carrying the numeric score of each answerOption (keep in sync with
-// src/utils/screening.ts — bots cannot import from src/utils).
-const ORDINAL_VALUE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/ordinalValue';
 
-// Returns the leaf choice items (the scorable questions) of a questionnaire, depth-first.
-function getChoiceItems(questionnaire: Questionnaire): QuestionnaireItem[] {
-  const result: QuestionnaireItem[] = [];
-  const walk = (items: QuestionnaireItem[] | undefined): void => {
-    for (const item of items ?? []) {
-      if (item.answerOption?.length && item.linkId) {
-        result.push(item);
-      }
-      walk(item.item);
+// Profiles uploaded during this (warm) Lambda invocation, so a repeated call in the same session
+// doesn't re-upload. Cold starts reset this — the "already exists" path below handles re-uploads.
+const uploadedProfiles = new Set<string>();
+
+// A PhenoML "profile already exists" rejection means the upload succeeded on a prior call — treat as
+// success rather than failing the whole fill.
+function isDuplicateProfileError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /already\s+(exists|been\s+uploaded)|duplicate/i.test(message);
+}
+
+// Looks up the profile in Medplum by its content-derived canonical URL. If no profile matches
+// deterministically, creates it on the fly so it is cached and inspectable in Medplum.
+async function ensureProfileInMedplum(medplum: MedplumClient, profile: StructureDefinition): Promise<void> {
+  const existing = await medplum.searchOne('StructureDefinition', { url: profile.url });
+  if (!existing) {
+    await medplum.createResource(profile);
+  }
+}
+
+// Registers the profile with PhenoML so create() can target it. Idempotent within a session and
+// tolerant of "already exists" across cold starts.
+async function ensureProfileUploaded(
+  client: InstanceType<typeof phenomlClient>,
+  profile: StructureDefinition,
+  questionnaire: Questionnaire
+): Promise<void> {
+  const id = profile.id as string;
+  if (uploadedProfiles.has(id)) {
+    return;
+  }
+  const encoded = Buffer.from(JSON.stringify(profile)).toString('base64');
+  try {
+    await client.lang2Fhir.uploadProfile({
+      profile: encoded,
+      implementation_guide: IMPLEMENTATION_GUIDE,
+      profile_context: profileContextFor(questionnaire),
+    });
+  } catch (error) {
+    if (!isDuplicateProfileError(error)) {
+      throw error;
     }
-  };
-  walk(questionnaire.item);
-  return result;
+  }
+  uploadedProfiles.add(id);
 }
 
-// Builds the natural-language prompt sent to lang2fhir. It lists every question with its linkId and
-// the allowed answer options (code, label, and score) and instructs the model to pick, for each
-// question, the option best supported by the transcript.
-export function buildScribePrompt(transcript: string, questionnaire: Questionnaire): string {
-  const items = getChoiceItems(questionnaire);
-  const questionLines = items.map((item) => {
-    const options = (item.answerOption ?? [])
-      .map((opt) => {
-        const code = opt.valueCoding?.code ?? '';
-        const label = opt.valueCoding?.display ?? '';
-        const score = opt.extension?.find((e) => e.url === ORDINAL_VALUE_EXTENSION_URL)?.valueDecimal;
-        return `      - code "${code}": "${label}"${score !== undefined ? ` (score ${score})` : ''}`;
-      })
-      .join('\n');
-    return `  linkId "${item.linkId}": ${item.text ?? ''}\n${options}`;
-  });
-
-  return [
-    `You are a clinical scribe filling out the "${questionnaire.title ?? questionnaire.name ?? 'screening'}" questionnaire from a visit transcript.`,
-    `Produce a FHIR QuestionnaireResponse. For every question below, choose exactly one answer option whose meaning is best supported by the transcript. Use the given linkId and the option's coding code verbatim. If the transcript gives no evidence for a question, choose the lowest-severity ("Not at all") option.`,
-    ``,
-    `Questions:`,
-    ...questionLines,
-    ``,
-    `Transcript:`,
-    transcript,
-  ].join('\n');
-}
-
-// Normalizes a raw answer (however the model expressed it) to one of the item's answerOptions.
-function matchAnswerOption(
-  item: QuestionnaireItem,
-  rawAnswers: QuestionnaireResponseItemAnswer[] | undefined
-): QuestionnaireResponseItemAnswer | undefined {
-  const options = item.answerOption ?? [];
-  const raw = rawAnswers?.[0];
-  if (!raw) {
-    return undefined;
-  }
-  // Candidate identifiers the model might have returned.
-  const candidates: string[] = [];
-  if (raw.valueCoding?.code) {
-    candidates.push(raw.valueCoding.code);
-  }
-  if (raw.valueCoding?.display) {
-    candidates.push(raw.valueCoding.display);
-  }
-  if (raw.valueString) {
-    candidates.push(raw.valueString);
-  }
-  if (typeof raw.valueInteger === 'number') {
-    candidates.push(String(raw.valueInteger));
-  }
-  if (typeof raw.valueDecimal === 'number') {
-    candidates.push(String(raw.valueDecimal));
-  }
-  const norm = (s: string): string => s.trim().toLowerCase();
-  const normalized = candidates.map(norm);
-
-  const match = options.find((opt) => {
-    const code = opt.valueCoding?.code;
-    const display = opt.valueCoding?.display;
-    const score = opt.extension?.find((e) => e.url === ORDINAL_VALUE_EXTENSION_URL)?.valueDecimal;
-    return (
-      (code && normalized.includes(norm(code))) ||
-      (display && normalized.includes(norm(display))) ||
-      (score !== undefined && normalized.includes(String(score)))
+// Calls lang2fhir/create against the custom profile. Falls back to the generic questionnaireresponse
+// profile (same prompt text, which already carries the question key) if the custom profile can't be
+// used — e.g. an account tier without custom profiles — so the flow still returns a usable response.
+async function createConformed(
+  client: InstanceType<typeof phenomlClient>,
+  profileId: string,
+  text: string
+): Promise<QuestionnaireResponse> {
+  type CreateRequest = Parameters<typeof client.lang2Fhir.create>[0];
+  try {
+    return (await client.lang2Fhir.create({
+      version: 'R4',
+      resource: profileId,
+      text,
+    } as unknown as CreateRequest)) as unknown as QuestionnaireResponse;
+  } catch (error) {
+    console.warn(
+      `lang2fhir create against profile "${profileId}" failed; falling back to generic questionnaireresponse: ${
+        error instanceof Error ? error.message : String(error)
+      }`
     );
-  });
-
-  return match?.valueCoding ? { valueCoding: match.valueCoding } : undefined;
-}
-
-// Rebuilds a clean QuestionnaireResponse from the source questionnaire and the model's raw response,
-// guaranteeing valid linkIds and answer codes. Answers that cannot be matched to an option are left
-// unanswered for the clinician to complete.
-export function reconcileResponse(
-  raw: QuestionnaireResponse | undefined,
-  questionnaire: Questionnaire,
-  input: Pick<ScribeFillInput, 'patient' | 'encounter'>
-): QuestionnaireResponse {
-  const rawByLinkId = new Map<string, QuestionnaireResponseItem>();
-  const indexRaw = (items: QuestionnaireResponseItem[] | undefined): void => {
-    for (const item of items ?? []) {
-      if (item.linkId) {
-        rawByLinkId.set(item.linkId, item);
-      }
-      indexRaw(item.item);
-    }
-  };
-  indexRaw(raw?.item);
-
-  const responseItems: QuestionnaireResponseItem[] = getChoiceItems(questionnaire).map((item) => {
-    const rawItem = rawByLinkId.get(item.linkId);
-    const answer = matchAnswerOption(item, rawItem?.answer);
-    return {
-      linkId: item.linkId,
-      text: item.text,
-      ...(answer ? { answer: [answer] } : {}),
-    };
-  });
-
-  return {
-    resourceType: 'QuestionnaireResponse',
-    status: 'in-progress',
-    questionnaire: questionnaire.url,
-    ...(input.patient
-      ? {
-          subject: {
-            reference: `Patient/${input.patient.id}`,
-            display: input.patient.name?.[0]?.text ?? `Patient/${input.patient.id}`,
-          },
-        }
-      : {}),
-    ...(input.encounter ? { encounter: input.encounter } : {}),
-    authored: new Date().toISOString(),
-    item: responseItems,
-  };
+    return (await client.lang2Fhir.create({
+      version: 'R4',
+      resource: 'questionnaireresponse',
+      text,
+    })) as unknown as QuestionnaireResponse;
+  }
 }
 
 export async function handler(
@@ -205,14 +153,25 @@ export async function handler(
     // The SDK handles OAuth client-credentials auth automatically.
     const client = new phenomlClient({ clientId, clientSecret, baseUrl });
 
-    const text = buildScribePrompt(transcript, questionnaire);
-    const generated = (await client.lang2Fhir.create({
-      version: 'R4',
-      resource: 'questionnaireresponse',
-      text,
-    })) as unknown as QuestionnaireResponse;
+    // 1. Deterministically build the QR profile from the questionnaire.
+    const profile = buildQuestionnaireResponseProfile(questionnaire);
 
-    return reconcileResponse(generated, questionnaire, { patient, encounter });
+    // 2. Cache the profile in Medplum (created on the fly when it doesn't already match).
+    await ensureProfileInMedplum(medplum, profile);
+
+    // 3. Register the profile with PhenoML.
+    await ensureProfileUploaded(client, profile, questionnaire);
+
+    // 4. Conform the transcript to the profile.
+    const text = composeExtractionText(transcript, questionnaire);
+    const raw = await createConformed(client, profile.id as string, text);
+
+    // 5. Validate/stamp and return for review (never persisted here).
+    const { response, warnings } = postValidate(raw, questionnaire, { patient, encounter });
+    if (warnings.length) {
+      console.warn(`scribe-fill post-validation warnings for ${profile.id}:\n- ${warnings.join('\n- ')}`);
+    }
+    return response;
   } catch (error) {
     throw new Error(`Bot execution failed: ${error instanceof Error ? error.message : String(error)}`);
   }

@@ -1,47 +1,45 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 import type { BotEvent, MedplumClient } from '@medplum/core';
-import type { Questionnaire, QuestionnaireResponse } from '@medplum/fhirtypes';
+import type { Questionnaire } from '@medplum/fhirtypes';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { ScribeFillInput } from './scribe-fill';
-import { buildScribePrompt, handler, reconcileResponse } from './scribe-fill';
+import { handler } from './scribe-fill';
 
-// Mock the PhenoML SDK so no network call is made; the bot only uses phenomlClient().lang2Fhir.create.
-const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }));
+// Mock the PhenoML SDK: the bot uses lang2Fhir.uploadProfile and lang2Fhir.create.
+const { mockCreate, mockUploadProfile } = vi.hoisted(() => ({
+  mockCreate: vi.fn(),
+  mockUploadProfile: vi.fn(),
+}));
 vi.mock('phenoml', () => ({
   phenomlClient: class {
-    lang2Fhir = { create: mockCreate };
+    lang2Fhir = { create: mockCreate, uploadProfile: mockUploadProfile };
   },
 }));
 
 const ORDINAL = 'http://hl7.org/fhir/StructureDefinition/ordinalValue';
 
-const questionnaire: Questionnaire = {
-  resourceType: 'Questionnaire',
-  status: 'active',
-  url: 'https://www.medplum.com/questionnaire/gad-7',
-  title: 'GAD-7',
-  item: [
-    {
-      linkId: 'gad7-q1',
-      text: 'Feeling nervous',
-      type: 'choice',
-      answerOption: [
-        { valueCoding: { system: 'http://loinc.org', code: 'LA6568-5', display: 'Not at all' }, extension: [{ url: ORDINAL, valueDecimal: 0 }] },
-        { valueCoding: { system: 'http://loinc.org', code: 'LA6569-3', display: 'Several days' }, extension: [{ url: ORDINAL, valueDecimal: 1 }] },
-      ],
-    },
-    {
-      linkId: 'gad7-q2',
-      text: 'Cannot stop worrying',
-      type: 'choice',
-      answerOption: [
-        { valueCoding: { system: 'http://loinc.org', code: 'LA6568-5', display: 'Not at all' }, extension: [{ url: ORDINAL, valueDecimal: 0 }] },
-        { valueCoding: { system: 'http://loinc.org', code: 'LA6571-9', display: 'Nearly every day' }, extension: [{ url: ORDINAL, valueDecimal: 3 }] },
-      ],
-    },
-  ],
-};
+// Each variant produces a distinct content-derived profile id, so upload dedupe (a module-level Set)
+// does not couple tests to each other.
+function makeQuestionnaire(variant: string): Questionnaire {
+  return {
+    resourceType: 'Questionnaire',
+    status: 'active',
+    url: `https://www.medplum.com/questionnaire/gad-7-${variant}`,
+    title: `GAD-7 ${variant}`,
+    item: [
+      {
+        linkId: 'gad7-q1',
+        text: 'Feeling nervous',
+        type: 'choice',
+        answerOption: [
+          { valueCoding: { system: 'http://loinc.org', code: 'LA6568-5', display: 'Not at all' }, extension: [{ url: ORDINAL, valueDecimal: 0 }] },
+          { valueCoding: { system: 'http://loinc.org', code: 'LA6569-3', display: 'Several days' }, extension: [{ url: ORDINAL, valueDecimal: 1 }] },
+        ],
+      },
+    ],
+  };
+}
 
 function makeEvent(input: ScribeFillInput): BotEvent<ScribeFillInput> {
   return {
@@ -53,85 +51,90 @@ function makeEvent(input: ScribeFillInput): BotEvent<ScribeFillInput> {
   } as unknown as BotEvent<ScribeFillInput>;
 }
 
-const medplum = {} as unknown as MedplumClient;
+function makeMedplum(existingProfile = false): { medplum: MedplumClient; searchOne: ReturnType<typeof vi.fn>; createResource: ReturnType<typeof vi.fn> } {
+  const searchOne = vi.fn().mockResolvedValue(existingProfile ? { resourceType: 'StructureDefinition', id: 'x' } : undefined);
+  const createResource = vi.fn().mockImplementation(async (r: unknown) => r);
+  return { medplum: { searchOne, createResource } as unknown as MedplumClient, searchOne, createResource };
+}
 
-describe('buildScribePrompt', () => {
-  test('embeds linkIds, answer option codes, and the transcript', () => {
-    const prompt = buildScribePrompt('patient reports feeling nervous several days', questionnaire);
-    expect(prompt).toContain('gad7-q1');
-    expect(prompt).toContain('LA6569-3');
-    expect(prompt).toContain('(score 1)');
-    expect(prompt).toContain('patient reports feeling nervous several days');
-  });
-});
-
-describe('reconcileResponse', () => {
-  test('maps raw answers (by code, display, or score) onto the questionnaire linkIds', () => {
-    const raw: QuestionnaireResponse = {
-      resourceType: 'QuestionnaireResponse',
-      status: 'in-progress',
-      item: [
-        { linkId: 'gad7-q1', answer: [{ valueString: 'Several days' }] }, // matched by display
-        { linkId: 'gad7-q2', answer: [{ valueCoding: { code: 'LA6571-9' } }] }, // matched by code
-        { linkId: 'unknown-item', answer: [{ valueString: 'ignored' }] },
-      ],
-    };
-
-    const result = reconcileResponse(raw, questionnaire, {
-      patient: { resourceType: 'Patient', id: 'p1', name: [{ text: 'Jane Doe' }] },
-      encounter: { reference: 'Encounter/e1' },
-    });
-
-    expect(result.questionnaire).toBe(questionnaire.url);
-    expect(result.subject).toEqual({ reference: 'Patient/p1', display: 'Jane Doe' });
-    expect(result.encounter).toEqual({ reference: 'Encounter/e1' });
-    expect(result.item).toHaveLength(2); // only the two questionnaire items, unknown dropped
-    expect(result.item?.[0]).toEqual({
-      linkId: 'gad7-q1',
-      text: 'Feeling nervous',
-      answer: [{ valueCoding: { system: 'http://loinc.org', code: 'LA6569-3', display: 'Several days' } }],
-    });
-    expect(result.item?.[1].answer?.[0].valueCoding?.code).toBe('LA6571-9');
-  });
-
-  test('leaves items unanswered when no raw answer matches', () => {
-    const result = reconcileResponse(undefined, questionnaire, {});
-    expect(result.item).toHaveLength(2);
-    expect(result.item?.[0].answer).toBeUndefined();
-  });
-});
-
-describe('handler', () => {
+describe('scribe-fill handler', () => {
   beforeEach(() => {
     mockCreate.mockReset();
+    mockUploadProfile.mockReset().mockResolvedValue({ id: 'ok' });
   });
 
   test('throws when PhenoML credentials are missing', async () => {
-    const event = { input: { transcript: 'x', questionnaire }, secrets: {} } as unknown as BotEvent<ScribeFillInput>;
-    await expect(handler(medplum, event)).rejects.toThrow(/PhenoML credentials/);
+    const event = { input: { transcript: 'x', questionnaire: makeQuestionnaire('a') }, secrets: {} } as unknown as BotEvent<ScribeFillInput>;
+    await expect(handler(makeMedplum().medplum, event)).rejects.toThrow(/PhenoML credentials/);
   });
 
   test('throws when transcript is empty', async () => {
-    await expect(handler(medplum, makeEvent({ transcript: '  ', questionnaire }))).rejects.toThrow(/transcript/i);
+    await expect(handler(makeMedplum().medplum, makeEvent({ transcript: '  ', questionnaire: makeQuestionnaire('b') }))).rejects.toThrow(/transcript/i);
   });
 
-  test('calls lang2fhir create and returns a reconciled response', async () => {
+  test('builds a profile, saves it to Medplum, uploads it, and conforms create output to it', async () => {
     mockCreate.mockResolvedValue({
       resourceType: 'QuestionnaireResponse',
       status: 'in-progress',
       item: [{ linkId: 'gad7-q1', answer: [{ valueCoding: { code: 'LA6569-3' } }] }],
     });
+    const { medplum, searchOne, createResource } = makeMedplum(false);
 
     const result = await handler(
       medplum,
-      makeEvent({ transcript: 'nervous several days', questionnaire, encounter: { reference: 'Encounter/e1' } })
+      makeEvent({ transcript: 'nervous several days', questionnaire: makeQuestionnaire('c'), encounter: { reference: 'Encounter/e1' } })
     );
 
-    expect(mockCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ version: 'R4', resource: 'questionnaireresponse', text: expect.stringContaining('gad7-q1') })
+    // Profile looked up by content-derived url, and created on the fly since it did not exist.
+    expect(searchOne).toHaveBeenCalledWith('StructureDefinition', expect.objectContaining({ url: expect.stringContaining('/qr-gad-7-c-') }));
+    expect(createResource).toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'StructureDefinition', type: 'QuestionnaireResponse' }));
+
+    // Profile uploaded to PhenoML with a base64 body and the IG name.
+    expect(mockUploadProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ implementation_guide: 'medplum_questionnaires', profile: expect.any(String) })
     );
+
+    // create() targets the custom profile id and carries the question key + transcript.
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ version: 'R4', resource: expect.stringMatching(/^qr-gad-7-c-/), text: expect.stringContaining('[gad7-q1]') })
+    );
+
+    // Post-validation enriches the matched code to the full answerOption coding and stamps fields.
     expect(result.resourceType).toBe('QuestionnaireResponse');
     expect(result.encounter).toEqual({ reference: 'Encounter/e1' });
-    expect(result.item?.[0].answer?.[0].valueCoding?.code).toBe('LA6569-3');
+    expect(result.item?.[0].answer?.[0].valueCoding).toEqual({
+      system: 'http://loinc.org',
+      code: 'LA6569-3',
+      display: 'Several days',
+    });
+  });
+
+  test('does not re-create the profile in Medplum when it already matches', async () => {
+    mockCreate.mockResolvedValue({ resourceType: 'QuestionnaireResponse', status: 'in-progress', item: [] });
+    const { medplum, createResource } = makeMedplum(true);
+
+    await handler(medplum, makeEvent({ transcript: 'text', questionnaire: makeQuestionnaire('d') }));
+
+    expect(createResource).not.toHaveBeenCalled();
+  });
+
+  test('tolerates a PhenoML "profile already exists" error', async () => {
+    mockUploadProfile.mockRejectedValue(new Error('A custom profile with the same id has already been uploaded'));
+    mockCreate.mockResolvedValue({ resourceType: 'QuestionnaireResponse', status: 'in-progress', item: [] });
+
+    const result = await handler(makeMedplum(false).medplum, makeEvent({ transcript: 'text', questionnaire: makeQuestionnaire('e') }));
+    expect(result.resourceType).toBe('QuestionnaireResponse');
+    expect(mockCreate).toHaveBeenCalled();
+  });
+
+  test('falls back to the generic profile when create against the custom profile fails', async () => {
+    mockCreate
+      .mockRejectedValueOnce(new Error('custom profiles require the develop or launch tier'))
+      .mockResolvedValueOnce({ resourceType: 'QuestionnaireResponse', status: 'in-progress', item: [] });
+
+    const result = await handler(makeMedplum(false).medplum, makeEvent({ transcript: 'text', questionnaire: makeQuestionnaire('f') }));
+
+    expect(result.resourceType).toBe('QuestionnaireResponse');
+    expect(mockCreate).toHaveBeenNthCalledWith(2, expect.objectContaining({ resource: 'questionnaireresponse' }));
   });
 });
