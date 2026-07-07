@@ -1,0 +1,92 @@
+Recommended test transcript — psychiatry visit (GAD-7 / PHQ-9 scribe demo)
+==========================================================================
+
+How to use:
+  Open an encounter → "Note & Tasks" tab → "Screening scribe" section.
+  Paste one of the transcripts below (or dictate it with the mic) and click
+  "Generate screening questionnaires". GAD-7 and PHQ-9 should pre-fill with
+  scored answers that you can review, edit, and save to the encounter.
+
+  Both notes deliberately use PHQ/GAD frequency language ("not at all",
+  "several days", "more than half the days", "nearly every day") so the
+  model can map each symptom to a scored answer option.
+
+  OPTION A — live visit dialogue (clinician + patient).
+  OPTION B — post-visit dictation, spoken by the clinician alone. Use this
+  when the clinician wants to record a summary from memory after the patient
+  has left, rather than transcribing the conversation in real time.
+
+--------------------------------------------------------------------------
+OPTION A — TRANSCRIPT (live visit dialogue)
+--------------------------------------------------------------------------
+
+Clinician: Good morning. Thanks for coming in today. How have things been
+over the last two weeks?
+
+Patient: Honestly, not great. I've been feeling nervous and on edge nearly
+every day. My mind just won't switch off.
+
+Clinician: Tell me more about the worrying.
+
+Patient: I can't stop or control the worrying — it's there nearly every
+day. I worry too much about all kinds of different things, more than half
+the days I'd say. Trouble relaxing is constant, pretty much every day. I've
+been so restless that it's hard to sit still on several days. I get easily
+annoyed or irritable more than half the days. And several days I feel
+afraid, like something awful might happen.
+
+Clinician: That sounds exhausting. How has your mood been?
+
+Patient: Low. I've had little interest or pleasure in doing things nearly
+every day. I feel down, depressed, and hopeless more than half the days.
+
+Clinician: How's your sleep and energy?
+
+Patient: Trouble falling and staying asleep nearly every day, and I'm tired
+with little energy nearly every day too.
+
+Clinician: What about appetite?
+
+Patient: My appetite is poor — that's been happening several days.
+
+Clinician: How do you feel about yourself lately?
+
+Patient: I feel bad about myself, like I'm a failure, more than half the
+days. Concentrating on things like reading or watching TV is hard on
+several days.
+
+Clinician: Have you noticed any change in how you move or speak?
+
+Patient: Not at all, really. No one's mentioned me being slowed down or
+fidgety.
+
+Clinician: I have to ask — any thoughts that you'd be better off dead, or
+of hurting yourself?
+
+Patient: No, not at all. Nothing like that.
+
+Clinician: Thank you for being so open. Let's go through a couple of brief
+screening questionnaires together and talk about next steps.
+
+--------------------------------------------------------------------------
+OPTION B — POST-VISIT DICTATION (clinician, single speaker)
+--------------------------------------------------------------------------
+
+Post-visit note, dictated. This is a 34-year-old patient seen today for a
+follow-up of anxiety and low mood, reporting on the last two weeks.
+
+On the anxiety side: the patient has been feeling nervous, anxious, or on
+edge, and reports being unable to stop or control the
+worrying nearly every day. They describe worrying too much about different
+things more than half the days, with trouble relaxing nearly every day.
+They've been so restless that it's hard to sit still on several days, are
+easily annoyed or irritable more than half the days, and feel afraid as if
+something awful might happen on several days.
+
+On mood: little interest or pleasure in doing things nearly every day, and
+feeling down, depressed, or hopeless more than half the days. Sleep is
+disrupted — trouble falling and staying asleep nearly every day — with
+fatigue and low energy nearly every day. Appetite is poor on several days.
+The patient feels bad about themselves, like a failure, more than half the
+days, and has trouble concentrating on things such as reading or watching
+television on several days. No psychomotor slowing or agitation noted. Denies any thoughts of being better off dead or of self-harm.

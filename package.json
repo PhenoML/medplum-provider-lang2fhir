@@ -74,7 +74,6 @@
     "node": "^22.18.0 || >=24.2.0"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.7.1",
     "phenoml": "^17.7.0"
   }
 }

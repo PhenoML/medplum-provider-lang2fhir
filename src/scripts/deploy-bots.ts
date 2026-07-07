@@ -39,6 +39,14 @@ const Bots: BotDescription[] = [
   {
     src: 'src/bots/referral-intake.ts',
     dist: 'dist/referral-intake.js',
+  },
+  {
+    src: 'src/bots/scribe-fill.ts',
+    dist: 'dist/scribe-fill.js',
+  },
+  {
+    src: 'src/bots/voice-transcribe.ts',
+    dist: 'dist/voice-transcribe.js',
   }
 ];
 

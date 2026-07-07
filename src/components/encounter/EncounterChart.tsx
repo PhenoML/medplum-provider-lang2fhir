@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Box, Card, Stack, Textarea, Title } from '@mantine/core';
+import { Box, Card, Stack, Title } from '@mantine/core';
 import type { WithId } from '@medplum/core';
 import { createReference, getReferenceString } from '@medplum/core';
 import type { ClinicalImpression, Encounter, Practitioner, Provenance, Reference, Task } from '@medplum/fhirtypes';
@@ -14,8 +14,10 @@ import { ChartNoteStatus } from '../../types/encounter';
 import { updateEncounterStatus } from '../../utils/encounter';
 import { showErrorNotification } from '../../utils/notifications';
 import { TaskPanel } from '../tasks/encounter/TaskPanel';
+import { ScribeTextarea } from '../ScribeTextarea';
 import { BillingTab } from './BillingTab';
 import { EncounterHeader } from './EncounterHeader';
+import { ScribePanel } from './ScribePanel';
 import { SignAddendum } from './SignAddendum';
 
 const FHIR_ACT_REASON_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ActReason';
@@ -56,6 +58,13 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
   const debouncedUpdateResource = useDebouncedUpdateResource(medplum, SAVE_TIMEOUT_MS);
   const [provenances, setProvenances] = useState<Provenance[]>([]);
   const [chartNoteStatus, setChartNoteStatus] = useState(ChartNoteStatus.Unsigned);
+
+  // The clinical impression loads asynchronously; seed the note text into local state once it arrives.
+  // The functional guard only fills an empty value, so it never clobbers in-progress edits (and never
+  // triggers a re-render once seeded).
+  useEffect(() => {
+    setChartNote((prev) => prev ?? clinicalImpression?.note?.[0]?.text);
+  }, [clinicalImpression]);
 
   useEffect(() => {
     if (!encounter) {
@@ -104,22 +113,22 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
     setActiveTab(tab);
   };
 
-  const handleChartNoteChange = async (e: React.ChangeEvent<HTMLTextAreaElement>): Promise<void> => {
-    setChartNote(e.target.value);
+  const handleChartNoteChange = async (value: string): Promise<void> => {
+    setChartNote(value);
 
     if (!clinicalImpression) {
       return;
     }
 
     try {
-      if (!e.target.value || e.target.value === '') {
+      if (!value || value === '') {
         const { note: _, ...restOfClinicalImpression } = clinicalImpression;
         const updatedClinicalImpression: ClinicalImpression = restOfClinicalImpression;
         await debouncedUpdateResource(updatedClinicalImpression);
       } else {
         const updatedClinicalImpression: ClinicalImpression = {
           ...clinicalImpression,
-          note: [{ text: e.target.value }],
+          note: [{ text: value }],
         };
         await debouncedUpdateResource(updatedClinicalImpression);
       }
@@ -235,9 +244,8 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
               {clinicalImpression && (
                 <Card withBorder shadow="sm" mt="md">
                   <Title>Fill chart note</Title>
-                  <Textarea
-                    defaultValue={clinicalImpression.note?.[0]?.text}
-                    value={chartNote}
+                  <ScribeTextarea
+                    value={chartNote ?? ''}
                     onChange={handleChartNoteChange}
                     autosize
                     minRows={4}
@@ -246,6 +254,13 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
                   />
                 </Card>
               )}
+
+              <ScribePanel
+                encounter={encounter}
+                patient={patientResource}
+                disabled={chartNoteStatus === ChartNoteStatus.SignedAndLocked}
+              />
+
               {tasks.map((task) => (
                 <TaskPanel
                   key={task.id}
