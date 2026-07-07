@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { BotEvent, MedplumClient } from '@medplum/core';
 import type {
+  Coding,
   Encounter,
   Patient,
   Questionnaire,
   QuestionnaireResponse,
+  QuestionnaireResponseItem,
+  QuestionnaireResponseItemAnswer,
   Reference,
   StructureDefinition,
 } from '@medplum/fhirtypes';
@@ -14,10 +17,11 @@ import { phenomlClient } from 'phenoml';
 import {
   buildQuestionnaireResponseProfile,
   composeExtractionText,
+  getAnswerableItems,
   IMPLEMENTATION_GUIDE,
   profileContextFor,
+  valueTypesFor,
 } from './buildProfile';
-import { postValidate } from './postValidate';
 
 /**
  * A Medplum Bot that pre-fills a screening Questionnaire (e.g. GAD-7 / PHQ-9) from a visit
@@ -32,8 +36,9 @@ import { postValidate } from './postValidate';
  *      "already exists" is treated as success).
  *   4. lang2Fhir.create({ resource: <profileId>, text }) — conform the output to the profile. The
  *      text embeds a compact "question key" (linkId/text/type/allowed codes) ahead of the transcript.
- *   5. postValidate — treat the model output as untrusted: validate against the questionnaire, stamp
- *      required fields, and return the QuestionnaireResponse for clinician review/edit.
+ *   5. finalizeResponse — enrich each answer to its canonical answerOption Coding (so the Medplum
+ *      QuestionnaireForm pre-selects it and scoring resolves) and stamp the required fields, returning
+ *      the QuestionnaireResponse for clinician review/edit.
  *
  * Like the Phase 1 referral-intake bot, this bot does NOT persist the QuestionnaireResponse — the UI
  * saves it at sign-off.
@@ -129,6 +134,104 @@ async function createConformed(
   }
 }
 
+// Allowed answer codings for a single coded question, keyed for lookup by code or by display text.
+interface CodedInfo {
+  codings: Map<string, Coding>;
+  displaysToCode: Map<string, string>;
+}
+
+const norm = (value: string): string => value.trim().toLowerCase();
+
+// Maps each coded question's linkId to its allowed answerOption codings (built from the Questionnaire).
+function buildCodedMap(questionnaire: Questionnaire): Map<string, CodedInfo> {
+  const map = new Map<string, CodedInfo>();
+  for (const item of getAnswerableItems(questionnaire)) {
+    if (!valueTypesFor(item).includes('Coding')) {
+      continue;
+    }
+    const codings = new Map<string, Coding>();
+    const displaysToCode = new Map<string, string>();
+    for (const opt of item.answerOption ?? []) {
+      const coding = opt.valueCoding;
+      if (coding?.code) {
+        codings.set(coding.code, coding);
+        if (coding.display) {
+          displaysToCode.set(norm(coding.display), coding.code);
+        }
+      }
+    }
+    map.set(item.linkId, { codings, displaysToCode });
+  }
+  return map;
+}
+
+// Enriches a model answer to the questionnaire's canonical Coding when its code/display/string
+// matches an allowed option. Unmatched answers are returned unchanged for the clinician to correct.
+function enrichAnswer(info: CodedInfo, answer: QuestionnaireResponseItemAnswer): QuestionnaireResponseItemAnswer {
+  const byCode = answer.valueCoding?.code ? info.codings.get(answer.valueCoding.code) : undefined;
+  if (byCode) {
+    return { valueCoding: byCode };
+  }
+  const candidates = [answer.valueCoding?.display, answer.valueString].filter((v): v is string => Boolean(v));
+  for (const candidate of candidates) {
+    const exact = info.codings.get(candidate);
+    if (exact) {
+      return { valueCoding: exact };
+    }
+    const mappedCode = info.displaysToCode.get(norm(candidate));
+    const byDisplay = mappedCode ? info.codings.get(mappedCode) : undefined;
+    if (byDisplay) {
+      return { valueCoding: byDisplay };
+    }
+  }
+  return answer;
+}
+
+function enrichItems(
+  items: QuestionnaireResponseItem[] | undefined,
+  codedMap: Map<string, CodedInfo>
+): QuestionnaireResponseItem[] {
+  return (items ?? []).map((item) => {
+    const info = item.linkId ? codedMap.get(item.linkId) : undefined;
+    return {
+      ...item,
+      ...(info && item.answer ? { answer: item.answer.map((answer) => enrichAnswer(info, answer)) } : {}),
+      ...(item.item ? { item: enrichItems(item.item, codedMap) } : {}),
+    };
+  });
+}
+
+// Enriches answers to canonical codings and stamps the FHIR-required fields (status, questionnaire,
+// authored) plus subject/encounter links. The profile already conforms the model output on the server
+// side; this trusts it and only normalizes codings + fills required fields for the review form.
+function finalizeResponse(
+  raw: QuestionnaireResponse | undefined,
+  questionnaire: Questionnaire,
+  input: { patient?: Patient; encounter?: Reference<Encounter> }
+): QuestionnaireResponse {
+  const source: QuestionnaireResponse =
+    raw?.resourceType === 'QuestionnaireResponse' ? raw : { resourceType: 'QuestionnaireResponse', status: 'in-progress' };
+  const items = enrichItems(source.item, buildCodedMap(questionnaire));
+
+  return {
+    ...source,
+    resourceType: 'QuestionnaireResponse',
+    status: 'in-progress',
+    questionnaire: questionnaire.url ?? source.questionnaire,
+    authored: source.authored ?? new Date().toISOString(),
+    ...(input.patient
+      ? {
+          subject: {
+            reference: `Patient/${input.patient.id}`,
+            display: input.patient.name?.[0]?.text ?? `Patient/${input.patient.id}`,
+          },
+        }
+      : {}),
+    ...(input.encounter ? { encounter: input.encounter } : {}),
+    ...(items.length ? { item: items } : {}),
+  };
+}
+
 export async function handler(
   medplum: MedplumClient,
   event: BotEvent<ScribeFillInput>
@@ -166,12 +269,9 @@ export async function handler(
     const text = composeExtractionText(transcript, questionnaire);
     const raw = await createConformed(client, profile.id as string, text);
 
-    // 5. Validate/stamp and return for review (never persisted here).
-    const { response, warnings } = postValidate(raw, questionnaire, { patient, encounter });
-    if (warnings.length) {
-      console.warn(`scribe-fill post-validation warnings for ${profile.id}:\n- ${warnings.join('\n- ')}`);
-    }
-    return response;
+    // 5. Enrich answers to canonical codings, stamp required fields, and return for review (never
+    // persisted here).
+    return finalizeResponse(raw, questionnaire, { patient, encounter });
   } catch (error) {
     throw new Error(`Bot execution failed: ${error instanceof Error ? error.message : String(error)}`);
   }
