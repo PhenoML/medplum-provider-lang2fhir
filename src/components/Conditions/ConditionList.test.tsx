@@ -310,6 +310,23 @@ describe('ConditionList', () => {
         return { resourceType: 'ValueSet', expansion: { contains: [] } };
       });
 
+    // Mock the phenoml-code-search bot lookup for ICD-10 codes (cholera). The ICD-10 picker now
+    // searches through PhenoML's Construe full-text search via the bot instead of valueSetExpand.
+    vi.spyOn(medplum, 'searchOne').mockImplementation((async (resourceType: string) => {
+      if (resourceType === 'Bot') {
+        return { resourceType: 'Bot', id: 'bot-code-search' };
+      }
+      return undefined;
+    }) as typeof medplum.searchOne);
+    vi.spyOn(medplum, 'executeBot').mockResolvedValue({
+      success: true,
+      message: 'ok',
+      results: [
+        { code: 'A00.0', description: 'Cholera due to Vibrio cholerae 01, biovar cholerae' },
+        { code: 'A00.9', description: 'Cholera, unspecified' },
+      ],
+    });
+
     vi.spyOn(medplum, 'createResource').mockResolvedValue(newCondition);
 
     setup({
@@ -353,15 +370,14 @@ describe('ConditionList', () => {
       // Type "cholera" to search
       await user.type(icd10Input, 'cholera');
 
-      // Wait for valueSetExpand to be called with cholera filter
+      // Wait for the phenoml-code-search bot to be called with the cholera query
       await waitFor(
         () => {
-          const calls = vi.mocked(medplum.valueSetExpand).mock.calls;
-          const choleraCall = calls.find(
-            (call) =>
-              call[0]?.url === 'http://hl7.org/fhir/sid/icd-10-cm/vs/billable' &&
-              call[0]?.filter?.toLowerCase().includes('cholera')
-          );
+          const calls = vi.mocked(medplum.executeBot).mock.calls;
+          const choleraCall = calls.find((call) => {
+            const input = call[1] as { query?: string; system?: string } | undefined;
+            return input?.system === 'ICD-10-CM' && input?.query?.toLowerCase().includes('cholera');
+          });
           expect(choleraCall).toBeDefined();
         },
         { timeout: 10000 }

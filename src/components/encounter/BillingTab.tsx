@@ -1,16 +1,17 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Button, Card, Flex, Group, Menu, Skeleton, Stack, Tooltip } from '@mantine/core';
+import { Button, Card, Flex, Group, Menu, Skeleton, Stack, Text, Tooltip } from '@mantine/core';
 import { useDebouncedCallback } from '@mantine/hooks';
 import { notifications, showNotification } from '@mantine/notifications';
 import type { WithId } from '@medplum/core';
-import { CPT, getReferenceString } from '@medplum/core';
+import { CPT, formatDate, getReferenceString } from '@medplum/core';
 import type {
   ChargeItem,
   Claim,
   ClaimResponse,
   Condition,
   Coverage,
+  DocumentReference,
   Encounter,
   EncounterDiagnosis,
   Media,
@@ -18,7 +19,7 @@ import type {
   Practitioner,
   Reference,
 } from '@medplum/fhirtypes';
-import { useMedplum } from '@medplum/react';
+import { MedplumLink, useMedplum } from '@medplum/react';
 import { IconCircleOff, IconDownload, IconFileText, IconSend } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -32,6 +33,7 @@ import { showErrorNotification } from '../../utils/notifications';
 import { ChargeItemList } from '../ChargeItem/ChargeItemList';
 import { ConditionList } from '../Conditions/ConditionList';
 import { ClaimSubmittedPanel } from './ClaimSubmittedPanel';
+import { DraftPriorAuthModal } from './DraftPriorAuthModal';
 import { SubmitClaimModal } from './SubmitClaimModal';
 import { VisitDetailsPanel } from './VisitDetailsPanel';
 
@@ -54,10 +56,26 @@ export const BillingTab = (props: BillingTabProps): JSX.Element => {
   const [coverage, setCoverage] = useState<WithId<Coverage> | undefined>();
   const [submitting, setSubmitting] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [priorAuthOpen, setPriorAuthOpen] = useState(false);
+  const [priorAuthDocs, setPriorAuthDocs] = useState<WithId<DocumentReference>[]>([]);
   const [claimResponse, setClaimResponse] = useState<WithId<ClaimResponse> | null | undefined>(undefined);
   const [claimResponseLoading, setClaimResponseLoading] = useState(false);
 
   const debouncedUpdateResource = useDebouncedUpdateResource(medplum);
+
+  const loadPriorAuthDocs = useCallback(async (): Promise<void> => {
+    const results = await medplum.searchResources(
+      'DocumentReference',
+      `encounter=${getReferenceString(encounter)}&type=http://loinc.org|68609-7&_sort=-date`,
+      { cache: 'no-cache' }
+    );
+    setPriorAuthDocs(results);
+  }, [encounter, medplum]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadPriorAuthDocs().catch((err) => showErrorNotification(err));
+  }, [loadPriorAuthDocs]);
 
   useEffect(() => {
     const fetchClaim = async (): Promise<void> => {
@@ -406,6 +424,57 @@ export const BillingTab = (props: BillingTabProps): JSX.Element => {
 
   return (
     <Stack gap="md">
+      <Card withBorder shadow="sm">
+        <Stack gap="md">
+          <Flex justify="space-between" align="center">
+            <div>
+              <Text fw={600}>Prior authorization</Text>
+              <Text size="sm" c="dimmed">
+                Draft a payer-rule-aware prior-authorization request from this patient's chart.
+              </Text>
+            </div>
+            <Button
+              variant="outline"
+              leftSection={<IconFileText size={16} />}
+              onClick={() => setPriorAuthOpen(true)}
+            >
+              Draft prior auth
+            </Button>
+          </Flex>
+
+          {priorAuthDocs.length > 0 && (
+            <Stack gap="xs">
+              {priorAuthDocs.map((doc) => (
+                <Flex key={doc.id} justify="space-between" align="center" gap="sm">
+                  <Group gap="xs" wrap="nowrap">
+                    <IconFileText size={16} />
+                    <MedplumLink to={`/Patient/${patient.id}/Billing`}>
+                      {doc.content?.[0]?.attachment?.title ?? 'Prior Authorization Request'}
+                    </MedplumLink>
+                  </Group>
+                  {doc.date && (
+                    <Text size="sm" c="dimmed">
+                      {formatDate(doc.date)}
+                    </Text>
+                  )}
+                </Flex>
+              ))}
+            </Stack>
+          )}
+        </Stack>
+      </Card>
+
+      <DraftPriorAuthModal
+        opened={priorAuthOpen}
+        onClose={() => setPriorAuthOpen(false)}
+        patient={patient}
+        encounter={encounter}
+        coverage={coverage}
+        onSaved={() => {
+          loadPriorAuthDocs().catch((err) => showErrorNotification(err));
+        }}
+      />
+
       {renderClaimCard()}
 
       <Group grow align="flex-start">

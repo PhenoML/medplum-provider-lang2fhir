@@ -38,6 +38,7 @@ import type { JSX } from 'react';
 import { useCallback, useState } from 'react';
 import orderSetBundleData from '../../data/order-set-example-bundle.json';
 import patientBundleData from '../../data/patient-david-james-williams.json';
+import priorAuthMayaBundleData from '../../data/prior-auth-maya-chen.json';
 import visitBundleData from '../../data/simple-initial-visit-bundle.json';
 import { showErrorNotification } from '../../utils/notifications';
 import classes from './GetStartedPage.module.css';
@@ -49,6 +50,7 @@ export function GetStartedPage(): JSX.Element {
   const [importingVisit, setImportingVisit] = useState(false);
   const [importingIcd10, setImportingIcd10] = useState(false);
   const [importingOrderSet, setImportingOrderSet] = useState(false);
+  const [importingPriorAuth, setImportingPriorAuth] = useState(false);
 
   const handleImportPatient = useCallback(async () => {
     setImportingPatient(true);
@@ -150,6 +152,27 @@ export function GetStartedPage(): JSX.Element {
     }
   }, [medplum, syncOrderSet]);
 
+  const handleImportPriorAuth = useCallback(async () => {
+    setImportingPriorAuth(true);
+    try {
+      // The prior-auth demo bundle is already a transaction bundle.
+      const result = await medplum.executeBatch(priorAuthMayaBundleData as Bundle);
+
+      const resourceCount =
+        result.entry?.filter((entry: BundleEntry) => entry.response?.status?.startsWith('2')).length || 0;
+
+      showNotification({
+        color: 'green',
+        title: 'Success',
+        message: `Imported ${resourceCount} resources for the Maya Chen prior-auth demo`,
+      });
+    } catch (error) {
+      showErrorNotification(error);
+    } finally {
+      setImportingPriorAuth(false);
+    }
+  }, [medplum]);
+
   const integrations = [
     { src: '/img/integrations/labcorp.png', alt: 'Labcorp', left: 20, top: 20, zIndex: 1, rotation: -2 },
     { src: '/img/integrations/quest.png', alt: 'Quest Diagnostics', left: 70, top: 0, zIndex: 2, rotation: 2 },
@@ -236,6 +259,38 @@ export function GetStartedPage(): JSX.Element {
                   mt="sm"
                 >
                   {importingPatient ? 'Importing...' : 'Import Patient'}
+                </Button>
+              </Paper>
+              <Paper radius="md" withBorder p="lg" shadow="sm" className={classes.card}>
+                <Stack gap="md" className={classes.flexOne}>
+                  <Group gap="sm" align="center">
+                    <IconFileText size={24} color="var(--icon-secondary)" />
+                    <Stack gap={0}>
+                      <Text size="11px" fw={500} className={classes.textLabel}>
+                        Prior-Auth Demo
+                      </Text>
+                      <Text fw={600} size="lg">
+                        Maya Chen (rTMS)
+                      </Text>
+                    </Stack>
+                  </Group>
+                  <Divider />
+                  <Text size="md" className={classes.textSecondary} mb="sm" style={{ flex: 1 }}>
+                    Patient with a Cascade Behavioral Health payer, coverage, MDD diagnosis, a planned rTMS
+                    procedure, and PHQ-9/GAD-7 scores — ready for the "Draft prior auth" action.
+                  </Text>
+                </Stack>
+                <Button
+                  variant="filled"
+                  size="sm"
+                  fullWidth
+                  onClick={handleImportPriorAuth}
+                  loading={importingPriorAuth}
+                  disabled={importingPriorAuth}
+                  leftSection={<IconDownload size={14} />}
+                  mt="sm"
+                >
+                  {importingPriorAuth ? 'Importing...' : 'Import Prior-Auth Demo'}
                 </Button>
               </Paper>
               <Paper radius="md" withBorder p="lg" shadow="sm" className={classes.card}>

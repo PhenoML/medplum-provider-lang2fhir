@@ -1,0 +1,313 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0001",
+      "request": { "method": "POST", "url": "Organization" },
+      "resource": {
+        "resourceType": "Organization",
+        "name": "Cascade Behavioral Health Plan",
+        "identifier": [
+          {
+            "system": "https://cascadebh.example.org/payer-id",
+            "value": "CASCADE-BH"
+          }
+        ],
+        "type": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/organization-type",
+                "code": "pay",
+                "display": "Payer"
+              }
+            ],
+            "text": "Payer"
+          }
+        ],
+        "telecom": [
+          { "system": "phone", "value": "1-800-555-0142", "use": "work" }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0002",
+      "request": {
+        "method": "POST",
+        "url": "Patient",
+        "ifNoneExist": "identifier=https://spokane.example.org/mrn|SCH-4830172"
+      },
+      "resource": {
+        "resourceType": "Patient",
+        "identifier": [
+          {
+            "system": "https://spokane.example.org/mrn",
+            "value": "SCH-4830172"
+          }
+        ],
+        "name": [{ "use": "official", "family": "Chen", "given": ["Maya"] }],
+        "gender": "female",
+        "birthDate": "1991-03-22",
+        "address": [
+          {
+            "line": ["214 Larkspur Ave"],
+            "city": "San Francisco",
+            "state": "CA",
+            "postalCode": "94110",
+            "country": "US"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0003",
+      "request": { "method": "POST", "url": "Coverage" },
+      "resource": {
+        "resourceType": "Coverage",
+        "status": "active",
+        "subscriberId": "CBH-778402",
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+              "code": "PPO",
+              "display": "preferred provider organization policy"
+            }
+          ],
+          "text": "Cascade Behavioral Health PPO"
+        },
+        "beneficiary": { "reference": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0002", "display": "Maya Chen" },
+        "subscriber": { "reference": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0002", "display": "Maya Chen" },
+        "payor": [
+          {
+            "reference": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0001",
+            "display": "Cascade Behavioral Health Plan"
+          }
+        ],
+        "class": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+                  "code": "group"
+                }
+              ]
+            },
+            "value": "CBH-GRP-2026",
+            "name": "Cascade Behavioral Health Group"
+          }
+        ],
+        "period": { "start": "2026-01-01" }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0004",
+      "request": { "method": "POST", "url": "Condition" },
+      "resource": {
+        "resourceType": "Condition",
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active",
+              "display": "Active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed",
+              "display": "Confirmed"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "encounter-diagnosis",
+                "display": "Encounter Diagnosis"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://hl7.org/fhir/sid/icd-10-cm",
+              "code": "F33.1",
+              "display": "Major depressive disorder, recurrent, moderate"
+            },
+            {
+              "system": "http://snomed.info/sct",
+              "code": "66344007",
+              "display": "Recurrent major depression"
+            }
+          ],
+          "text": "Major depressive disorder, recurrent, moderate"
+        },
+        "subject": { "reference": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0002", "display": "Maya Chen" },
+        "onsetDateTime": "2026-02-15",
+        "recordedDate": "2026-06-20"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0005",
+      "request": { "method": "POST", "url": "ServiceRequest" },
+      "resource": {
+        "resourceType": "ServiceRequest",
+        "status": "active",
+        "intent": "order",
+        "priority": "routine",
+        "code": {
+          "coding": [
+            {
+              "system": "http://www.ama-assn.org/go/cpt",
+              "code": "90867",
+              "display": "Therapeutic repetitive transcranial magnetic stimulation (TMS) treatment; initial, including cortical mapping, motor threshold determination, delivery and management"
+            }
+          ],
+          "text": "Repetitive transcranial magnetic stimulation (rTMS), initial course"
+        },
+        "subject": { "reference": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0002", "display": "Maya Chen" },
+        "reasonReference": [
+          { "reference": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0004", "display": "Major depressive disorder, recurrent, moderate" }
+        ],
+        "authoredOn": "2026-07-01"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0006",
+      "request": { "method": "POST", "url": "Observation" },
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "survey",
+                "display": "Survey"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            { "system": "http://loinc.org", "code": "44261-6", "display": "Patient Health Questionnaire 9 item (PHQ-9) total score" }
+          ],
+          "text": "PHQ-9 total score"
+        },
+        "subject": { "reference": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0002", "display": "Maya Chen" },
+        "effectiveDateTime": "2026-06-20",
+        "valueQuantity": { "value": 18, "unit": "{score}", "system": "http://unitsofmeasure.org", "code": "{score}" }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0007",
+      "request": { "method": "POST", "url": "Observation" },
+      "resource": {
+        "resourceType": "Observation",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "survey",
+                "display": "Survey"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            { "system": "http://loinc.org", "code": "70274-9", "display": "Generalized anxiety disorder 7 item (GAD-7) total score" }
+          ],
+          "text": "GAD-7 total score"
+        },
+        "subject": { "reference": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0002", "display": "Maya Chen" },
+        "effectiveDateTime": "2026-06-20",
+        "valueQuantity": { "value": 15, "unit": "{score}", "system": "http://unitsofmeasure.org", "code": "{score}" }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0008",
+      "request": { "method": "POST", "url": "MedicationStatement" },
+      "resource": {
+        "resourceType": "MedicationStatement",
+        "status": "completed",
+        "medicationCodeableConcept": {
+          "coding": [
+            { "system": "http://www.nlm.nih.gov/research/umls/rxnorm", "code": "312940", "display": "sertraline 50 MG Oral Tablet" }
+          ],
+          "text": "Sertraline 50 mg oral tablet"
+        },
+        "subject": { "reference": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0002", "display": "Maya Chen" },
+        "effectivePeriod": { "start": "2026-02-20", "end": "2026-05-25" },
+        "dateAsserted": "2026-06-20",
+        "reasonReference": [
+          { "reference": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0004", "display": "Major depressive disorder, recurrent, moderate" }
+        ],
+        "dosage": [
+          {
+            "text": "50 mg by mouth once daily for 13 weeks; inadequate response.",
+            "timing": { "repeat": { "frequency": 1, "period": 1, "periodUnit": "d" } },
+            "route": {
+              "coding": [
+                { "system": "http://snomed.info/sct", "code": "26643006", "display": "Oral route" }
+              ]
+            },
+            "doseAndRate": [
+              {
+                "doseQuantity": { "value": 50, "unit": "mg", "system": "http://unitsofmeasure.org", "code": "mg" }
+              }
+            ]
+          }
+        ],
+        "note": [
+          { "text": "Adequate 13-week trial of sertraline at therapeutic dose with inadequate response in the current episode." }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0009",
+      "request": { "method": "POST", "url": "Encounter" },
+      "resource": {
+        "resourceType": "Encounter",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "AMB",
+          "display": "ambulatory"
+        },
+        "type": [
+          {
+            "coding": [
+              { "system": "http://snomed.info/sct", "code": "185349003", "display": "Encounter for check up" }
+            ],
+            "text": "Behavioral health follow-up visit"
+          }
+        ],
+        "subject": { "reference": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0002", "display": "Maya Chen" },
+        "period": { "start": "2026-06-20T15:00:00Z", "end": "2026-06-20T15:45:00Z" },
+        "diagnosis": [
+          {
+            "condition": { "reference": "urn:uuid:5c8b2f9e-6d41-4a7a-9f2b-1b7c0a9d0004" },
+            "use": {
+              "coding": [
+                { "system": "http://terminology.hl7.org/CodeSystem/diagnosis-role", "code": "AD", "display": "Admission diagnosis" }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
