@@ -56,7 +56,6 @@ type AllowedResourceTypes =
   | ResearchStudy;
 
 const PATIENT_INDEPENDENT_RESOURCES = ['PlanDefinition', 'Questionnaire', 'ResearchStudy'] as const;
-const PHENOML_BASE_URL = 'https://experiment.app.pheno.ml';
 
 // Maps input resource types to the SDK's lang2fhir profile identifiers.
 // 'auto' is used for types without a dedicated US Core profile in the SDK.
@@ -100,8 +99,13 @@ export async function handler(medplum: MedplumClient, event: BotEvent<CreateBotI
       throw new Error('PhenoML credentials (PHENOML_CLIENT_ID and PHENOML_CLIENT_SECRET) are required');
     }
 
+    const baseUrl = event.secrets['PHENOML_BASE_URL']?.valueString;
+    if (!baseUrl) {
+      throw new Error('PHENOML_BASE_URL secret is required (e.g. https://phenohealth.app.pheno.ml)');
+    }
+
     // The SDK handles OAuth client-credentials auth automatically.
-    const client = new phenomlClient({ clientId, clientSecret, baseUrl: PHENOML_BASE_URL });
+    const client = new phenomlClient({ clientId, clientSecret, baseUrl });
 
     const generatedResource = await client.lang2Fhir.create({
       version: 'R4',

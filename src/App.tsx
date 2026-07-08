@@ -49,6 +49,7 @@ import { IntegrationsPage } from './pages/integrations/IntegrationsPage';
 import { ScriptSurePage } from './pages/integrations/ScriptSurePage';
 import { MessagesPage } from './pages/messages/MessagesPage';
 import { ClinicalTrialsTab } from './pages/patient/ClinicalTrialsTab';
+import { BillingPage } from './pages/patient/BillingPage';
 import { CommunicationTab } from './pages/patient/CommunicationTab';
 import { CoveragePage } from './pages/patient/CoveragePage';
 import { DoseSpotTab } from './pages/patient/DoseSpotTab';
@@ -256,6 +257,7 @@ export function App(): JSX.Element | null {
                 <Route path="MedicationRequest" element={<MedicationsPage />} />
                 <Route path="MedicationRequest/:medicationRequestId" element={<MedicationsPage />} />
                 <Route path=":resourceType" element={<PatientSearchPage />} />
+                <Route path="Billing" element={<BillingPage />} />
                 <Route path="Coverage" element={<CoveragePage />} />
                 <Route path="Coverage/:coverageId" element={<CoveragePage />} />
                 <Route path="Coverage/:coverageId/CoverageEligibilityRequest/:requestId" element={<CoveragePage />} />

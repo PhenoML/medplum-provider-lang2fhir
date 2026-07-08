@@ -39,6 +39,14 @@ const Bots: BotDescription[] = [
   {
     src: 'src/bots/referral-intake.ts',
     dist: 'dist/referral-intake.js',
+  },
+  {
+    src: 'src/bots/prior-auth-draft.ts',
+    dist: 'dist/prior-auth-draft.js',
+  },
+  {
+    src: 'src/bots/phenoml-code-search.ts',
+    dist: 'dist/phenoml-code-search.js',
   }
 ];
 

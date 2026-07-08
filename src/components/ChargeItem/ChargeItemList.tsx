@@ -3,9 +3,9 @@
 import { Box, Button, Card, Flex, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import type { WithId } from '@medplum/core';
-import { createReference, HTTP_HL7_ORG } from '@medplum/core';
-import type { ChargeItem, ChargeItemDefinition, CodeableConcept, Encounter, Patient } from '@medplum/fhirtypes';
-import { AsyncAutocomplete, CodeableConceptInput, useMedplum } from '@medplum/react';
+import { ContentType, CPT, createReference, HTTP_HL7_ORG } from '@medplum/core';
+import type { ChargeItem, ChargeItemDefinition, CodeableConcept, Coding, Encounter, Patient } from '@medplum/fhirtypes';
+import { AsyncAutocomplete, useMedplum } from '@medplum/react';
 import { IconPlus } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -146,10 +146,61 @@ interface AddChargeItemModalProps {
   onSubmit: (cptCode: CodeableConcept | undefined, chargeItemDefinition: ChargeItemDefinition | undefined) => void;
 }
 
+/** Shape returned by the `phenoml-code-search` bot (see src/bots/phenoml-code-search.ts). */
+interface CodeSearchBotOutput {
+  success: boolean;
+  message: string;
+  results?: { code: string; description: string }[];
+}
+
+// Minimum characters before hitting the code-search bot, to avoid a round-trip per keystroke.
+const MIN_CODE_QUERY_LENGTH = 2;
+
 function AddChargeItemModal({ opened, onClose, onSubmit }: AddChargeItemModalProps): JSX.Element {
   const medplum = useMedplum();
   const [cptCode, setCptCode] = useState<CodeableConcept | undefined>();
   const [chargeItemDefinition, setChargeItemDefinition] = useState<ChargeItemDefinition | undefined>();
+
+  // Search CPT codes through PhenoML's Construe full-text search (via the phenoml-code-search bot).
+  const loadCptCodes = useCallback(
+    async (input: string, signal: AbortSignal): Promise<Coding[]> => {
+      if (input.trim().length < MIN_CODE_QUERY_LENGTH) {
+        return [];
+      }
+      try {
+        const bot = await medplum.searchOne('Bot', { name: 'phenoml-code-search' }, { signal });
+        if (!bot?.id) {
+          throw new Error('Bot "phenoml-code-search" not found. Deploy bots first.');
+        }
+        const output = (await medplum.executeBot(
+          bot.id,
+          { query: input, system: 'CPT', limit: 20 },
+          ContentType.JSON,
+          { signal }
+        )) as CodeSearchBotOutput;
+
+        if (signal.aborted) {
+          return [];
+        }
+        return (output.results ?? []).map((result) => ({
+          system: CPT,
+          code: result.code,
+          display: result.description,
+        }));
+      } catch (error) {
+        if (!signal.aborted) {
+          console.error('Error searching CPT codes:', error);
+        }
+        return [];
+      }
+    },
+    [medplum]
+  );
+
+  const handleSelectCptCode = useCallback((items: Coding[]) => {
+    const coding = items[0];
+    setCptCode(coding ? { coding: [coding], text: coding.display } : undefined);
+  }, []);
 
   const loadChargeItemDefinitions = useCallback(
     async (input: string, signal: AbortSignal): Promise<ChargeItemDefinition[]> => {
@@ -195,15 +246,25 @@ function AddChargeItemModal({ opened, onClose, onSubmit }: AddChargeItemModalPro
   return (
     <Modal opened={opened} onClose={handleClose} title="Add Charge Item" size="md">
       <Stack gap="md">
-        <CodeableConceptInput
-          binding="http://www.ama-assn.org/go/cpt/vs"
-          label="CPT Code"
-          name="cptCode"
-          path="ChargeItem.code"
-          placeholder="Search for CPT code..."
-          required
-          onChange={setCptCode}
-        />
+        <Box>
+          <Text size="sm" fw={500} mb={5}>
+            CPT Code{' '}
+            <Text span c="red">
+              *
+            </Text>
+          </Text>
+          <AsyncAutocomplete<Coding>
+            placeholder="Search CPT codes (powered by PhenoML)..."
+            onChange={handleSelectCptCode}
+            toOption={(coding: Coding) => ({
+              value: coding.code ?? '',
+              label: coding.display ? `${coding.code} – ${coding.display}` : (coding.code ?? ''),
+              resource: coding,
+            })}
+            maxValues={1}
+            loadOptions={loadCptCodes}
+          />
+        </Box>
 
         <Box>
           <Text size="sm" fw={500} mb={5}>
