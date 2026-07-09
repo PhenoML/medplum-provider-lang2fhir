@@ -324,9 +324,13 @@ async function deployBots(medplum: MedplumClient, projectId: string): Promise<vo
     // Create a new Bot if it doesn't already exist
     if (!existingBot) {
       const createBotUrl = new URL('admin/projects/' + (projectId) + '/bot', medplum.getBaseUrl());
-      existingBot = (await medplum.post(createBotUrl, {
+      existingBot = await medplum.post(createBotUrl, {
         name: botName,
-      }));
+      });
+    }
+
+    if (!existingBot?.id) {
+      throw new Error(`Failed to find or create Bot: ${botName}`);
     }
 
     botIds[botName] = existingBot.id;

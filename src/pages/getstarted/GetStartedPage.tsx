@@ -38,7 +38,6 @@ import type { JSX } from 'react';
 import { useCallback, useState } from 'react';
 import orderSetBundleData from '../../data/order-set-example-bundle.json';
 import patientBundleData from '../../data/patient-david-james-williams.json';
-import screeningBundleData from '../../data/screening-questionnaires-bundle.json';
 import visitBundleData from '../../data/simple-initial-visit-bundle.json';
 import { showErrorNotification } from '../../utils/notifications';
 import classes from './GetStartedPage.module.css';
@@ -50,7 +49,6 @@ export function GetStartedPage(): JSX.Element {
   const [importingVisit, setImportingVisit] = useState(false);
   const [importingIcd10, setImportingIcd10] = useState(false);
   const [importingOrderSet, setImportingOrderSet] = useState(false);
-  const [importingScreening, setImportingScreening] = useState(false);
 
   const handleImportPatient = useCallback(async () => {
     setImportingPatient(true);
@@ -92,27 +90,6 @@ export function GetStartedPage(): JSX.Element {
       showErrorNotification(error);
     } finally {
       setImportingVisit(false);
-    }
-  }, [medplum]);
-
-  const handleImportScreening = useCallback(async () => {
-    setImportingScreening(true);
-    try {
-      // The screening bundle is already a transaction bundle (idempotent via ifNoneExist).
-      const result = await medplum.executeBatch(screeningBundleData as Bundle);
-
-      const resourceCount =
-        result.entry?.filter((entry: BundleEntry) => entry.response?.status?.startsWith('2')).length || 0;
-
-      showNotification({
-        color: 'green',
-        title: 'Success',
-        message: `Imported ${resourceCount} screening questionnaires (GAD-7, PHQ-9)`,
-      });
-    } catch (error) {
-      showErrorNotification(error);
-    } finally {
-      setImportingScreening(false);
     }
   }, [medplum]);
 
@@ -293,38 +270,6 @@ export function GetStartedPage(): JSX.Element {
                   mt="sm"
                 >
                   {importingVisit ? 'Importing...' : 'Import Care Template'}
-                </Button>
-              </Paper>
-              <Paper radius="md" withBorder p="lg" shadow="sm" className={classes.card}>
-                <Stack gap="md" className={classes.flexOne}>
-                  <Group gap="sm" align="center">
-                    <IconFileText size={24} color="var(--icon-secondary)" />
-                    <Stack gap={0}>
-                      <Text size="11px" fw={500} className={classes.textLabel}>
-                        Screening Questionnaires
-                      </Text>
-                      <Text fw={600} size="lg">
-                        GAD-7 &amp; PHQ-9
-                      </Text>
-                    </Stack>
-                  </Group>
-                  <Divider />
-                  <Text size="md" className={classes.textSecondary} style={{ flex: 1 }}>
-                    Seeds the GAD-7 and PHQ-9 screening questionnaires used by the visit Scribe to pre-fill scored
-                    answers from a transcript.
-                  </Text>
-                </Stack>
-                <Button
-                  variant="filled"
-                  size="sm"
-                  fullWidth
-                  onClick={handleImportScreening}
-                  loading={importingScreening}
-                  disabled={importingScreening}
-                  leftSection={<IconDownload size={14} />}
-                  mt="sm"
-                >
-                  {importingScreening ? 'Importing...' : 'Import Screening Questionnaires'}
                 </Button>
               </Paper>
               <Paper radius="md" withBorder p="lg" shadow="sm" className={classes.card}>
