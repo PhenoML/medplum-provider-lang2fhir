@@ -62,7 +62,7 @@ export const SoapNotePanel = ({ transcript, patient, encounter, practitioner, di
       setSaved(false);
       const count = result.createdResources?.length ?? 0;
       showSuccessNotification({
-        title: 'SOAP note generated',
+        title: 'Note generated',
         message: count
           ? `${count} clinical resource${count === 1 ? '' : 's'} saved to the chart — review the note and save it`
           : 'Review the note below and save it to the chart',
@@ -98,7 +98,7 @@ export const SoapNotePanel = ({ transcript, patient, encounter, practitioner, di
         content: [{ attachment }],
       });
       setSaved(true);
-      showSuccessNotification({ title: 'Saved', message: 'SOAP note saved to the patient Documents tab' });
+      showSuccessNotification({ title: 'Saved', message: 'Note saved to the patient Documents tab' });
     } catch (err) {
       showErrorNotification(err);
     } finally {
@@ -109,11 +109,11 @@ export const SoapNotePanel = ({ transcript, patient, encounter, practitioner, di
   return (
     <Card withBorder shadow="sm">
       <Title order={4} mb="xs">
-        SOAP note
+        Note
       </Title>
       <Text size="sm" c="dimmed" mb="sm">
-        Generate a SOAP note from the chart-note transcript above using PhenoML (transcribe → lang2fhir → FHIR →
-        summary). Extracted clinical resources are saved to the chart; review the note, then save it as a document.
+        Generate a note from the chart-note transcript above using PhenoML (transcribe → lang2fhir → FHIR → summary).
+        Extracted clinical resources are saved to the chart; review the note, then save it as a document.
       </Text>
       <Button
         onClick={() => handleGenerate().catch(showErrorNotification)}
@@ -127,7 +127,7 @@ export const SoapNotePanel = ({ transcript, patient, encounter, practitioner, di
       {note !== undefined && (
         <Stack gap="sm" mt="md">
           <Textarea
-            label="SOAP note"
+            label="Note"
             value={note}
             onChange={(event) => {
               setNote(event.currentTarget.value);
