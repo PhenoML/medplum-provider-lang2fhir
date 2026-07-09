@@ -1,20 +1,25 @@
-Recommended test transcript — psychiatry visit (GAD-7 / PHQ-9 scribe demo)
-==========================================================================
+Recommended test transcript — psychiatry visit (SOAP note scribe demo)
+======================================================================
 
 How to use:
-  Open an encounter → "Note & Tasks" tab → "Screening scribe" section.
-  Paste one of the transcripts below (or dictate it with the mic) and click
-  "Generate screening questionnaires". GAD-7 and PHQ-9 should pre-fill with
-  scored answers that you can review, edit, and save to the encounter.
+  Open an encounter → "Note & Tasks" tab → "Fill chart note" box.
+  Paste one of the transcripts below (or dictate it with the mic), then click
+  "Generate SOAP note" in the "SOAP note" section beneath it. PhenoML runs the
+  pipeline transcribe → lang2fhir → FHIR → summary: it extracts clinical FHIR
+  resources from the transcript and saves them to the chart, then renders a
+  SOAP note (Subjective / Objective / Assessment / Plan). Review/edit the note
+  and click "Save to chart" to store it as a DocumentReference — it then appears
+  in the patient's Documents tab and Timeline.
 
   Both notes deliberately use PHQ/GAD frequency language ("not at all",
-  "several days", "more than half the days", "nearly every day") so the
-  model can map each symptom to a scored answer option.
+  "several days", "more than half the days", "nearly every day") so the model
+  has rich symptom detail to summarize.
 
   OPTION A — live visit dialogue (clinician + patient).
-  OPTION B — post-visit dictation, spoken by the clinician alone. Use this
-  when the clinician wants to record a summary from memory after the patient
-  has left, rather than transcribing the conversation in real time.
+  OPTION B — post-visit dictation, spoken by the clinician alone. It includes a
+  dictated assessment and plan, so the SOAP note's Assessment and Plan sections
+  populate as well. Use this when the clinician records a summary from memory
+  after the patient has left, rather than transcribing in real time.
 
 --------------------------------------------------------------------------
 OPTION A — TRANSCRIPT (live visit dialogue)
@@ -65,8 +70,13 @@ of hurting yourself?
 
 Patient: No, not at all. Nothing like that.
 
-Clinician: Thank you for being so open. Let's go through a couple of brief
-screening questionnaires together and talk about next steps.
+Clinician: Thank you for being so open. Based on today, I'm diagnosing
+generalized anxiety disorder, severe, along with a recurrent major
+depressive disorder, moderate. Your suicide risk is low with no active
+ideation. I'd like to start you on sertraline 50 milligrams once daily,
+refer you for cognitive behavioral therapy, and have you follow up with me
+in two weeks so we can reassess your symptoms and how the medication is
+being tolerated.
 
 --------------------------------------------------------------------------
 OPTION B — POST-VISIT DICTATION (clinician, single speaker)
@@ -90,3 +100,10 @@ fatigue and low energy nearly every day. Appetite is poor on several days.
 The patient feels bad about themselves, like a failure, more than half the
 days, and has trouble concentrating on things such as reading or watching
 television on several days. No psychomotor slowing or agitation noted. Denies any thoughts of being better off dead or of self-harm.
+
+Assessment and plan: my impression is generalized anxiety disorder, severe,
+and recurrent major depressive disorder, moderate. Symptoms are impairing
+daily functioning; suicide risk is low with no active ideation. Plan is to
+start sertraline 50 milligrams once daily, refer to cognitive behavioral
+therapy, and follow up in two weeks to reassess the anxiety and depression
+symptoms and medication tolerability.

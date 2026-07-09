@@ -17,7 +17,7 @@ import { TaskPanel } from '../tasks/encounter/TaskPanel';
 import { ScribeTextarea } from '../ScribeTextarea';
 import { BillingTab } from './BillingTab';
 import { EncounterHeader } from './EncounterHeader';
-import { ScribePanel } from './ScribePanel';
+import { SoapNotePanel } from './SoapNotePanel';
 import { SignAddendum } from './SignAddendum';
 
 const FHIR_ACT_REASON_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ActReason';
@@ -255,11 +255,15 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
                 </Card>
               )}
 
-              <ScribePanel
-                encounter={encounter}
-                patient={patientResource}
-                disabled={chartNoteStatus === ChartNoteStatus.SignedAndLocked}
-              />
+              {clinicalImpression && (
+                <SoapNotePanel
+                  transcript={chartNote ?? ''}
+                  patient={patientResource}
+                  encounter={encounter}
+                  practitioner={practitioner}
+                  disabled={chartNoteStatus === ChartNoteStatus.SignedAndLocked}
+                />
+              )}
 
               {tasks.map((task) => (
                 <TaskPanel
