@@ -104,6 +104,12 @@ const mockClaim: WithId<Claim> = {
   provider: { reference: 'Practitioner/practitioner-123' },
 };
 
+const billingAcuityBot: WithId<Bot> = {
+  resourceType: 'Bot',
+  id: 'billing-acuity-bot',
+  name: 'billing-acuity',
+};
+
 const mockDebouncedUpdate = (): ReturnType<typeof useDebouncedUpdateResourceModule.useDebouncedUpdateResource> => {
   const fn = vi.fn().mockResolvedValue(undefined) as unknown as ReturnType<
     typeof useDebouncedUpdateResourceModule.useDebouncedUpdateResource
@@ -163,6 +169,11 @@ describe('BillingTab', () => {
   const mockSearchOne = (resources: { Claim?: WithId<Claim>; ClaimResponse?: WithId<ClaimResponse> } = {}): void => {
     vi.spyOn(medplum, 'searchOne').mockImplementation(((resourceType: string) =>
       Promise.resolve(resources[resourceType as 'Claim' | 'ClaimResponse'])) as any);
+  };
+
+  const mockBillingBotSearch = (bot: WithId<Bot> | undefined): void => {
+    vi.spyOn(medplum, 'searchOne').mockImplementation(((resourceType: string) =>
+      Promise.resolve(resourceType === 'Bot' ? bot : undefined)) as any);
   };
 
   test('renders visit details panel', async () => {
@@ -857,6 +868,107 @@ describe('BillingTab', () => {
     });
 
     windowOpenSpy.mockRestore();
+  });
+
+  test('renders check for billing codes button', async () => {
+    await setup();
+
+    expect(screen.getByRole('button', { name: /Check for billing codes/i })).toBeInTheDocument();
+  });
+
+  test('executes billing acuity bot and refreshes charge items for the open encounter', async () => {
+    const user = userEvent.setup();
+    const refreshedChargeItem: WithId<ChargeItem> = {
+      ...mockChargeItem,
+      id: 'charge-refreshed',
+      code: {
+        coding: [{ system: 'http://www.ama-assn.org/go/cpt', code: '90834', display: 'Psychotherapy' }],
+        text: 'Psychotherapy',
+      },
+    };
+    vi.mocked(chargeItemsUtils.getChargeItemsForEncounter)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([refreshedChargeItem]);
+    mockBillingBotSearch(billingAcuityBot);
+    const executeSpy = vi.spyOn(medplum, 'executeBot').mockResolvedValue({
+      encounterId: mockEncounter.id,
+      emCode: '99214',
+      createdChargeItems: [{ id: 'charge-1', code: '99214' }],
+      skippedDuplicates: [],
+    });
+
+    await setup();
+
+    await user.click(screen.getByRole('button', { name: /Check for billing codes/i }));
+
+    await waitFor(() => {
+      expect(executeSpy).toHaveBeenCalledWith('billing-acuity-bot', { patientId: mockPatient.id }, 'application/json');
+      expect(chargeItemsUtils.getChargeItemsForEncounter).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(showNotification)).toHaveBeenCalledWith({
+        title: 'Billing codes checked',
+        message: 'E/M 99214; 1 created, 0 duplicates skipped',
+        color: 'green',
+      });
+    });
+  });
+
+  test('warns without refreshing when billing codes go to a different encounter', async () => {
+    const user = userEvent.setup();
+    mockChargeItems([]);
+    mockBillingBotSearch(billingAcuityBot);
+    vi.spyOn(medplum, 'executeBot').mockResolvedValue({
+      encounterId: 'encounter-newer',
+      emCode: '99213',
+      createdChargeItems: [],
+      skippedDuplicates: ['99213'],
+    });
+
+    await setup();
+
+    await user.click(screen.getByRole('button', { name: /Check for billing codes/i }));
+
+    await waitFor(() => {
+      expect(chargeItemsUtils.getChargeItemsForEncounter).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(showNotification)).toHaveBeenCalledWith({
+        title: 'Billing codes checked',
+        message:
+          "E/M 99213; 0 created, 1 duplicates skipped. Codes were added to the patient's most recent encounter, not this encounter.",
+        color: 'yellow',
+      });
+    });
+  });
+
+  test('shows deploy bots first notification when billing acuity bot is missing', async () => {
+    const user = userEvent.setup();
+    mockBillingBotSearch(undefined);
+    const executeSpy = vi.spyOn(medplum, 'executeBot');
+
+    await setup();
+
+    await user.click(screen.getByRole('button', { name: /Check for billing codes/i }));
+
+    await waitFor(() => {
+      expect(executeSpy).not.toHaveBeenCalled();
+      expect(vi.mocked(showNotification)).toHaveBeenCalledWith({
+        title: 'Deploy bots first',
+        message: 'Bot "billing-acuity" was not found',
+        color: 'red',
+      });
+    });
+  });
+
+  test('shows error notification when billing acuity bot rejects', async () => {
+    const user = userEvent.setup();
+    mockBillingBotSearch(billingAcuityBot);
+    vi.spyOn(medplum, 'executeBot').mockRejectedValue(new Error('bot failed'));
+
+    await setup();
+
+    await user.click(screen.getByRole('button', { name: /Check for billing codes/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('bot failed')).toBeInTheDocument();
+    });
   });
 
   test('handles error in encounter change', async () => {

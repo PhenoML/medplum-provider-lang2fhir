@@ -19,7 +19,7 @@ import type {
   Reference,
 } from '@medplum/fhirtypes';
 import { useMedplum } from '@medplum/react';
-import { IconCircleOff, IconDownload, IconFileText, IconSend } from '@tabler/icons-react';
+import { IconCircleOff, IconDownload, IconFileText, IconSend, IconSparkles } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { SAVE_TIMEOUT_MS } from '../../config/constants';
@@ -44,6 +44,13 @@ export interface BillingTabProps {
   chartNoteStatus: ChartNoteStatus;
 }
 
+interface BillingAcuityResult {
+  encounterId: string;
+  emCode: string;
+  createdChargeItems?: { id: string; code: string; display?: string }[];
+  skippedDuplicates?: string[];
+}
+
 export const BillingTab = (props: BillingTabProps): JSX.Element => {
   const { encounter, setEncounter, patient, practitioner, setPractitioner, chartNoteStatus } = props;
   const medplum = useMedplum();
@@ -53,6 +60,7 @@ export const BillingTab = (props: BillingTabProps): JSX.Element => {
   const [coverages, setCoverages] = useState<WithId<Coverage>[]>([]);
   const [coverage, setCoverage] = useState<WithId<Coverage> | undefined>();
   const [submitting, setSubmitting] = useState(false);
+  const [checkingBillingCodes, setCheckingBillingCodes] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [claimResponse, setClaimResponse] = useState<WithId<ClaimResponse> | null | undefined>(undefined);
   const [claimResponseLoading, setClaimResponseLoading] = useState(false);
@@ -280,6 +288,46 @@ export const BillingTab = (props: BillingTabProps): JSX.Element => {
     return created;
   }, [coverages, medplum, patient]);
 
+  const handleCheckBillingCodes = useCallback(async (): Promise<void> => {
+    setCheckingBillingCodes(true);
+    try {
+      const bot = await medplum.searchOne('Bot', { name: 'billing-acuity' });
+      if (!bot?.id) {
+        showNotification({
+          title: 'Deploy bots first',
+          message: 'Bot "billing-acuity" was not found',
+          color: 'red',
+        });
+        return;
+      }
+
+      const result = (await medplum.executeBot(
+        bot.id,
+        { patientId: patient.id },
+        'application/json'
+      )) as BillingAcuityResult;
+      const createdCount = result.createdChargeItems?.length ?? 0;
+      const duplicateCount = result.skippedDuplicates?.length ?? 0;
+      const message = `E/M ${result.emCode}; ${createdCount} created, ${duplicateCount} duplicates skipped`;
+
+      if (result.encounterId === encounter.id) {
+        const refreshedChargeItems = await getChargeItemsForEncounter(medplum, encounter);
+        setChargeItems(refreshedChargeItems);
+        showNotification({ title: 'Billing codes checked', message, color: 'green' });
+      } else {
+        showNotification({
+          title: 'Billing codes checked',
+          message: `${message}. Codes were added to the patient's most recent encounter, not this encounter.`,
+          color: 'yellow',
+        });
+      }
+    } catch (err) {
+      showErrorNotification(err);
+    } finally {
+      setCheckingBillingCodes(false);
+    }
+  }, [encounter, medplum, patient]);
+
   const LOCKED_TOOLTIP = 'Sign and Lock the encounter in order to enable this action';
 
   const exportClaimMenu = (disabled?: boolean): JSX.Element => (
@@ -425,6 +473,17 @@ export const BillingTab = (props: BillingTabProps): JSX.Element => {
           onDiagnosisChange={handleDiagnosisChange}
         />
       )}
+
+      <Group justify="flex-end">
+        <Button
+          variant="outline"
+          leftSection={<IconSparkles size={16} />}
+          loading={checkingBillingCodes}
+          onClick={handleCheckBillingCodes}
+        >
+          Check for billing codes
+        </Button>
+      </Group>
 
       <ChargeItemList
         patient={patient}
