@@ -277,6 +277,13 @@ describe('billing acuity handler', () => {
       definitions: [
         {
           resourceType: 'ChargeItemDefinition',
+          id: 'def-other',
+          status: 'active',
+          url: 'http://example.com/ChargeItemDefinition/other',
+          code: { coding: [{ system: CPT, code: '90837' }] },
+        },
+        {
+          resourceType: 'ChargeItemDefinition',
           id: 'def-90834',
           status: 'active',
           url: 'http://example.com/ChargeItemDefinition/90834',
@@ -302,8 +309,11 @@ describe('billing acuity handler', () => {
     for (const chargeItem of medplum.created) {
       expect(chargeItem.context?.reference).toBe('Encounter/encounter-new');
       expect(chargeItem.code?.coding?.[0]?.system).toBe(CPT);
+      expect(chargeItem.occurrenceDateTime).toBe('2026-07-08T14:00:00.000Z');
     }
+    expect(medplum.created[0].definitionCanonical).toBeUndefined();
     expect(medplum.created[1].definitionCanonical).toEqual(['http://example.com/ChargeItemDefinition/90834']);
+    expect(medplum.searchResources).toHaveBeenCalledWith('ChargeItemDefinition', 'status=active&_count=100');
   });
 
   test('skips duplicate CPT codes', async () => {
@@ -313,6 +323,18 @@ describe('billing acuity handler', () => {
 
     expect(result.skippedDuplicates).toEqual(['99214']);
     expect(result.createdChargeItems.map((item) => item.code)).toEqual(['90834']);
+    expect(medplum.created).toHaveLength(1);
+  });
+
+  test('skips the E/M candidate when a different-level E/M code already exists', async () => {
+    const medplum = createMockMedplum({ chargeItems: [existingChargeItem('99213')] });
+
+    const result = await handler(medplum, botEvent());
+
+    expect(result.emCode).toBe('99214');
+    expect(result.skippedDuplicates).toContain('99214');
+    expect(result.createdChargeItems.map((item) => item.code)).toEqual(['90834']);
+    expect(result.createdChargeItems.every((item) => !isEmCode(item.code))).toBe(true);
     expect(medplum.created).toHaveLength(1);
   });
 

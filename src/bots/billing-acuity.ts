@@ -202,11 +202,14 @@ export async function handler(
 
   const existingChargeItems = await medplum.searchResources('ChargeItem', `context=${encounterRef}`);
   const existingCptCodes = getCptCodes(existingChargeItems);
+  const hasExistingEmCode = Array.from(existingCptCodes).some(isEmCode);
   const skippedDuplicates: string[] = [];
   const createdChargeItems: { id: string; code: string; display?: string }[] = [];
 
   for (const candidate of candidates) {
-    if (existingCptCodes.has(candidate.code)) {
+    // An encounter carries only one office-visit E/M code, so skip the E/M candidate when
+    // any E/M ChargeItem already exists (even at a different level), not just on an exact match.
+    if (existingCptCodes.has(candidate.code) || (isEmCode(candidate.code) && hasExistingEmCode)) {
       skippedDuplicates.push(candidate.code);
       continue;
     }
@@ -423,7 +426,7 @@ async function createCptChargeItem(
     status: 'planned',
     subject: createReference(patient),
     context: createReference(encounter),
-    occurrenceDateTime: new Date().toISOString(),
+    occurrenceDateTime: encounter.period?.start ?? new Date().toISOString(),
     code: codeableConcept,
     quantity: { value: 1 },
     extension: [{ url: SERVICE_BILLING_CODE_URL, valueCodeableConcept: codeableConcept }],
@@ -445,12 +448,9 @@ function buildCptConcept(candidate: CodeCandidate): CodeableConcept {
 
 async function findChargeItemDefinitionUrl(medplum: MedplumClient, code: string): Promise<string | undefined> {
   try {
-    const definitions = await medplum.searchResources(
-      'ChargeItemDefinition',
-      `status=active&code=${encodeURIComponent(code)}&_count=10`
-    );
-    const matchingDefinition = definitions.find((definition) => chargeItemDefinitionHasCode(definition, code));
-    return matchingDefinition?.url ?? definitions[0]?.url;
+    // ChargeItemDefinition has no `code` search parameter in FHIR R4, so filter client-side.
+    const definitions = await medplum.searchResources('ChargeItemDefinition', 'status=active&_count=100');
+    return definitions.find((definition) => chargeItemDefinitionHasCode(definition, code))?.url;
   } catch {
     return undefined;
   }
