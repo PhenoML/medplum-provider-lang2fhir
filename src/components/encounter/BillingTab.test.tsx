@@ -904,6 +904,7 @@ describe('BillingTab', () => {
     await waitFor(() => {
       expect(executeSpy).toHaveBeenCalledWith('billing-acuity-bot', { patientId: mockPatient.id }, 'application/json');
       expect(chargeItemsUtils.getChargeItemsForEncounter).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('Total Calculated Price to Bill')).toBeInTheDocument();
       expect(vi.mocked(showNotification)).toHaveBeenCalledWith({
         title: 'Billing codes checked',
         message: 'E/M 99214; 1 created, 0 duplicates skipped',
