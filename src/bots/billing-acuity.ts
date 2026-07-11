@@ -61,14 +61,16 @@ const SERVICE_BILLING_CODE_URL = `${HTTP_HL7_ORG}/fhir/uv/order-catalog/Structur
 const RISK_PHRASES = ['prescription drug management', 'medication management', 'medication adjustment'];
 
 const CPT_EXTRACTION_CONTEXT = [
-  'Extract billing codes for an outpatient psychiatry visit.',
-  'Identify the E/M office visit code (99202-99215) and documented procedures.',
-  'Include a procedure only when explicitly performed.',
+  'Outpatient medical billing for this clinic visit.',
+  'Identify the evaluation-and-management office/outpatient visit code (range 99202-99215) and any documented procedures, based on the history, examination, medical decision making, and work performed today.',
+  'Include a procedure code only when the service is explicitly documented as performed in the note.',
 ].join(' ');
 
 const ICD_EXTRACTION_CONTEXT = [
-  'Extract active ICD-10-CM diagnoses addressed today.',
-  'Exclude denied, ruled-out, historical, and family-history diagnoses.',
+  'Outpatient medical billing for this clinic visit.',
+  "Code every confirmed, active diagnosis from the assessment / clinical impression that was evaluated or managed at today's encounter.",
+  'Do NOT code findings that are denied, negative, normal, or ruled out.',
+  'Do NOT code chronic problem-list or past-history conditions that were not addressed today.',
 ].join(' ');
 
 const EM_DISPLAY: Record<string, string> = {
