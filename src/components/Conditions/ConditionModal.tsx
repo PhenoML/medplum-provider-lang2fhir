@@ -11,13 +11,14 @@ import { showErrorNotification } from '../../utils/notifications';
 export interface ConditionDialogProps {
   readonly patient: Patient;
   readonly encounter: Encounter;
+  readonly condition?: Condition;
   readonly onSubmit: (condition: Condition) => void;
 }
 
 export default function ConditionModal(props: ConditionDialogProps): JSX.Element {
-  const { patient, encounter, onSubmit } = props;
-  const [diagnosis, setDiagnosis] = useState<CodeableConcept | undefined>();
-  const [clinicalStatus, setClinicalStatus] = useState<CodeableConcept | undefined>();
+  const { patient, encounter, condition, onSubmit } = props;
+  const [diagnosis, setDiagnosis] = useState<CodeableConcept | undefined>(condition?.code);
+  const [clinicalStatus, setClinicalStatus] = useState<CodeableConcept | undefined>(condition?.clinicalStatus);
 
   const handleSubmit = useCallback(() => {
     if (!diagnosis) {
@@ -27,6 +28,7 @@ export default function ConditionModal(props: ConditionDialogProps): JSX.Element
 
     const updatedCondition: Condition = addProfileToResource(
       {
+        ...condition,
         resourceType: 'Condition',
         category: [
           {
@@ -51,7 +53,7 @@ export default function ConditionModal(props: ConditionDialogProps): JSX.Element
     );
 
     onSubmit(updatedCondition);
-  }, [patient, encounter, diagnosis, clinicalStatus, onSubmit]);
+  }, [patient, encounter, condition, diagnosis, clinicalStatus, onSubmit]);
 
   return (
     <Form onSubmit={handleSubmit}>
@@ -63,6 +65,7 @@ export default function ConditionModal(props: ConditionDialogProps): JSX.Element
           path="Condition.code"
           required
           maxValues={1}
+          defaultValue={condition?.code}
           onChange={(diagnosis) => setDiagnosis(diagnosis)}
         />
 
@@ -72,6 +75,7 @@ export default function ConditionModal(props: ConditionDialogProps): JSX.Element
           path="Condition.clinicalStatus"
           maxValues={1}
           binding={HTTP_HL7_ORG + '/fhir/ValueSet/condition-clinical'}
+          defaultValue={condition?.clinicalStatus}
           onChange={(clinicalStatus) => setClinicalStatus(clinicalStatus)}
           required
         />

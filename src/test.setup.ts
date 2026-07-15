@@ -56,5 +56,6 @@ const localStorage = new MemoryStorage();
 
 Object.defineProperty(globalThis.window, 'sessionStorage', { value: sessionStorage });
 Object.defineProperty(globalThis, 'sessionStorage', { value: sessionStorage });
+// SearchPage.test.tsx reads and writes the last search through both globals.
 Object.defineProperty(globalThis.window, 'localStorage', { value: localStorage });
 Object.defineProperty(globalThis, 'localStorage', { value: localStorage });

@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Box, Card, Stack, Textarea, Title } from '@mantine/core';
+import { Box, Stack } from '@mantine/core';
 import type { WithId } from '@medplum/core';
 import { createReference, getReferenceString } from '@medplum/core';
 import type { ClinicalImpression, Encounter, Practitioner, Provenance, Reference, Task } from '@medplum/fhirtypes';
@@ -16,6 +16,7 @@ import { showErrorNotification } from '../../utils/notifications';
 import { TaskPanel } from '../tasks/encounter/TaskPanel';
 import { BillingTab } from './BillingTab';
 import { EncounterHeader } from './EncounterHeader';
+import { ChartNoteReviewCard } from './review/ChartNoteReviewCard';
 import { SignAddendum } from './SignAddendum';
 
 const FHIR_ACT_REASON_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ActReason';
@@ -56,6 +57,11 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
   const debouncedUpdateResource = useDebouncedUpdateResource(medplum, SAVE_TIMEOUT_MS);
   const [provenances, setProvenances] = useState<Provenance[]>([]);
   const [chartNoteStatus, setChartNoteStatus] = useState(ChartNoteStatus.Unsigned);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initialize from the asynchronously loaded resource
+    setChartNote(clinicalImpression?.note?.[0]?.text);
+  }, [clinicalImpression]);
 
   useEffect(() => {
     if (!encounter) {
@@ -127,6 +133,21 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
       showErrorNotification(err);
     }
   };
+
+  const flushChartNote = useCallback(async (): Promise<void> => {
+    if (!clinicalImpression) {
+      return;
+    }
+    debouncedUpdateResource.cancel();
+    const updatedClinicalImpression: ClinicalImpression = chartNote?.trim()
+      ? { ...clinicalImpression, note: [{ text: chartNote }] }
+      : (() => {
+          const { note: _, ...withoutNote } = clinicalImpression;
+          return withoutNote;
+        })();
+    const saved = await medplum.updateResource(updatedClinicalImpression);
+    setClinicalImpression(saved);
+  }, [chartNote, clinicalImpression, debouncedUpdateResource, medplum, setClinicalImpression]);
 
   const handleSign = async (practitioner: Reference<Practitioner>, lock: boolean): Promise<void> => {
     if (!encounter) {
@@ -225,6 +246,7 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
           practitioner={practitioner}
           onStatusChange={handleEncounterStatusChange}
           onTabChange={handleTabChange}
+          activeTab={activeTab}
           onSign={handleSign}
         />
         <Box p="md">
@@ -233,18 +255,17 @@ export const EncounterChart = (props: EncounterChartProps): JSX.Element => {
               <SignAddendum encounter={encounter} provenances={provenances} chartNoteStatus={chartNoteStatus} />
 
               {clinicalImpression && (
-                <Card withBorder shadow="sm" mt="md">
-                  <Title>Fill chart note</Title>
-                  <Textarea
-                    defaultValue={clinicalImpression.note?.[0]?.text}
-                    value={chartNote}
-                    onChange={handleChartNoteChange}
-                    autosize
-                    minRows={4}
-                    maxRows={8}
-                    disabled={chartNoteStatus === ChartNoteStatus.SignedAndLocked}
-                  />
-                </Card>
+                <ChartNoteReviewCard
+                  encounter={encounter}
+                  patient={patientResource}
+                  clinicalImpression={clinicalImpression}
+                  chartNote={chartNote}
+                  onChartNoteChange={handleChartNoteChange}
+                  flushChartNote={flushChartNote}
+                  disabled={chartNoteStatus === ChartNoteStatus.SignedAndLocked}
+                  setEncounter={setEncounter}
+                  onNavigateToDetails={() => setActiveTab('details')}
+                />
               )}
               {tasks.map((task) => (
                 <TaskPanel

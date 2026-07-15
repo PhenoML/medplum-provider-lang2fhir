@@ -6,6 +6,7 @@ import type { Condition, Encounter, EncounterDiagnosis, Patient } from '@medplum
 import { useMedplum } from '@medplum/react';
 import type { JSX } from 'react';
 import { useEffect, useState } from 'react';
+import { fetchEncounterConditions, removeEncounterDiagnosis } from '../../utils/conditions';
 import { showErrorNotification } from '../../utils/notifications';
 import ConditionItem from './ConditionItem';
 import ConditionModal from './ConditionModal';
@@ -29,48 +30,7 @@ export const ConditionList = (props: ConditionListProps): JSX.Element => {
         return;
       }
 
-      const diagnosisReferences = encounter.diagnosis?.map((d) => d.condition?.reference).filter(Boolean) || [];
-      const conditionsResult = await Promise.all(
-        diagnosisReferences.map((ref) => medplum.readReference({ reference: ref }))
-      );
-
-      if (conditionsResult.length > 0 && encounter?.diagnosis) {
-        const diagnosisMap = new Map<string, number>();
-
-        const diagnosisReferences = encounter.diagnosis?.map((d) => d.condition?.reference) || [];
-        const conditionsInDiagnosis = conditionsResult.filter((condition) =>
-          diagnosisReferences.includes(getReferenceString(condition))
-        );
-
-        encounter.diagnosis.forEach((diagnosis, index) => {
-          if (diagnosis.condition?.reference) {
-            diagnosisMap.set(diagnosis.condition.reference, diagnosis.rank || index);
-          }
-        });
-
-        conditionsInDiagnosis.sort((a, b) => {
-          const aRef = getReferenceString(a);
-          const bRef = getReferenceString(b);
-
-          if (diagnosisMap.has(aRef) && diagnosisMap.has(bRef)) {
-            const aValue = diagnosisMap.get(aRef) ?? 0;
-            const bValue = diagnosisMap.get(bRef) ?? 0;
-            return aValue - bValue;
-          }
-
-          if (diagnosisMap.has(aRef)) {
-            return -1;
-          }
-
-          if (diagnosisMap.has(bRef)) {
-            return 1;
-          }
-
-          return 0;
-        });
-
-        setConditions(conditionsInDiagnosis as Condition[]);
-      }
+      setConditions(await fetchEncounterConditions(medplum, encounter));
     };
 
     fetchConditions().catch((err) => showErrorNotification(err));
@@ -112,18 +72,9 @@ export const ConditionList = (props: ConditionListProps): JSX.Element => {
     }
 
     try {
-      await medplum.deleteResource('Condition', condition.id as string);
-      setConditions(conditions?.filter((c) => c.id !== condition.id));
-      const updatedDiagnosis = encounter.diagnosis?.filter(
-        (d) => d.condition?.reference !== getReferenceString(condition)
-      );
-      const reindexedDiagnosis = updatedDiagnosis?.map((d, index) => ({
-        ...d,
-        rank: index + 1,
-      }));
-
-      setConditions(conditions?.filter((c) => c.id !== condition.id) || []);
-      onDiagnosisChange(reindexedDiagnosis || []);
+      const diagnosis = await removeEncounterDiagnosis(medplum, encounter, condition);
+      setConditions(conditions.filter((c) => c.id !== condition.id));
+      onDiagnosisChange(diagnosis);
     } catch (err) {
       showErrorNotification(err);
     }

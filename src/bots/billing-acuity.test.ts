@@ -2,23 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { MedplumClient, WithId } from '@medplum/core';
 import { CPT } from '@medplum/core';
-import type {
-  ChargeItem,
-  ChargeItemDefinition,
-  ClinicalImpression,
-  Condition,
-  DocumentReference,
-  Encounter,
-  Patient,
-} from '@medplum/fhirtypes';
+import type { ChargeItem, ClinicalImpression, Condition, DocumentReference, Encounter, Patient, Resource } from '@medplum/fhirtypes';
 import { Buffer } from 'buffer';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { computeEmLevel, findRiskHits, handler, isEmCode, pickMostRecentEncounter } from './billing-acuity';
+import { handler, isEmCode } from './billing-acuity';
 
-const phenomlMocks = vi.hoisted(() => ({
-  constructor: vi.fn(),
-  extract: vi.fn(),
-}));
+const phenomlMocks = vi.hoisted(() => ({ constructor: vi.fn(), extract: vi.fn() }));
 
 vi.mock('phenoml', () => ({
   phenomlClient: vi.fn(function phenomlClient(options) {
@@ -27,113 +16,114 @@ vi.mock('phenoml', () => ({
   }),
 }));
 
-const patient: WithId<Patient> = {
-  resourceType: 'Patient',
-  id: 'patient-123',
-};
-
-const recentEncounter: WithId<Encounter> = {
+const patient: WithId<Patient> = { resourceType: 'Patient', id: 'patient-123' };
+const encounter: WithId<Encounter> = {
   resourceType: 'Encounter',
-  id: 'encounter-new',
+  id: 'encounter-123',
   status: 'finished',
   class: { code: 'AMB' },
   subject: { reference: 'Patient/patient-123' },
   period: { start: '2026-07-08T14:00:00.000Z' },
-  diagnosis: [
-    { condition: { reference: 'Condition/condition-1' } },
-    { condition: { reference: 'Condition/condition-2' } },
-  ],
+  diagnosis: [{ condition: { reference: 'Condition/condition-existing' }, rank: 1 }],
 };
-
-const oldEncounter: WithId<Encounter> = {
-  resourceType: 'Encounter',
-  id: 'encounter-old',
-  status: 'finished',
-  class: { code: 'AMB' },
-  subject: { reference: 'Patient/patient-123' },
-  meta: { lastUpdated: '2026-07-01T14:00:00.000Z' },
-};
-
-const conditionOne: WithId<Condition> = {
+const existingCondition: WithId<Condition> = {
   resourceType: 'Condition',
-  id: 'condition-1',
+  id: 'condition-existing',
   subject: { reference: 'Patient/patient-123' },
-  code: {
-    coding: [{ system: 'http://hl7.org/fhir/sid/icd-10-cm', code: 'F32.1', display: 'Depression' }],
-  },
+  code: { coding: [{ system: 'http://hl7.org/fhir/sid/icd-10-cm', code: 'F32.1' }] },
 };
 
-const conditionTwo: WithId<Condition> = {
-  resourceType: 'Condition',
-  id: 'condition-2',
-  subject: { reference: 'Patient/patient-123' },
-  code: {
-    coding: [{ system: 'http://hl7.org/fhir/sid/icd-10-cm', code: 'F41.1', display: 'Anxiety' }],
-  },
-};
-
-interface MockMedplumData {
-  encounters?: WithId<Encounter>[];
+interface MockData {
   docRefs?: WithId<DocumentReference>[];
   clinicalImpressions?: WithId<ClinicalImpression>[];
-  conditions?: Record<string, WithId<Condition>>;
   chargeItems?: WithId<ChargeItem>[];
-  definitions?: WithId<ChargeItemDefinition>[];
-  downloads?: Record<string, string>;
+  encounter?: WithId<Encounter>;
 }
 
-function createMockMedplum(data: MockMedplumData = {}): MedplumClient & { created: WithId<ChargeItem>[] } {
-  const created: WithId<ChargeItem>[] = [];
-  const conditions = data.conditions ?? {
-    'condition-1': conditionOne,
-    'condition-2': conditionTwo,
-  };
-
+function createMockMedplum(data: MockData = {}): MedplumClient & { created: Resource[]; updated: Resource[] } {
+  const created: Resource[] = [];
+  const updated: Resource[] = [];
+  const currentEncounter = data.encounter ?? encounter;
   const medplum = {
     created,
+    updated,
     readResource: vi.fn(async (resourceType: string, id: string) => {
-      if (resourceType === 'Patient' && id === patient.id) {
-        return patient;
+      if (resourceType === 'Encounter' && id === currentEncounter.id) {
+        return currentEncounter;
       }
       throw new Error(`${resourceType}/${id} not found`);
     }),
-    searchResources: vi.fn(async (resourceType: string) => {
-      switch (resourceType) {
-        case 'Encounter':
-          return data.encounters ?? [oldEncounter, recentEncounter];
-        case 'DocumentReference':
-          return data.docRefs ?? [textDocRef('Medication management performed today.')];
-        case 'ClinicalImpression':
-          return data.clinicalImpressions ?? [chartNote('Patient has medication management for anxiety.')];
-        case 'ChargeItem':
-          return data.chargeItems ?? [];
-        case 'ChargeItemDefinition':
-          return data.definitions ?? [];
-        default:
-          return [];
-      }
-    }),
     readReference: vi.fn(async (reference: { reference?: string }) => {
-      const id = reference.reference?.split('/')[1];
-      if (id && conditions[id]) {
-        return conditions[id];
+      if (reference.reference === 'Patient/patient-123') {
+        return patient;
       }
-      throw new Error(`${reference.reference ?? 'unknown reference'} not found`);
+      if (reference.reference === 'Condition/condition-existing') {
+        return existingCondition;
+      }
+      throw new Error(`${reference.reference} not found`);
     }),
-    download: vi.fn(async (url: string) => ({
-      text: async () => data.downloads?.[url] ?? '',
-    })),
-    createResource: vi.fn(async (resource: ChargeItem) => {
-      const saved = { ...resource, id: `charge-${created.length + 1}` } as WithId<ChargeItem>;
+    searchResources: vi.fn(async (resourceType: string) => {
+      if (resourceType === 'ClinicalImpression') {
+        return data.clinicalImpressions ?? [chartNote('Patient has ADHD and received psychotherapy today.')];
+      }
+      if (resourceType === 'DocumentReference') {
+        return data.docRefs ?? [textDocRef('Additional context.')];
+      }
+      if (resourceType === 'ChargeItem') {
+        return data.chargeItems ?? [];
+      }
+      if (resourceType === 'ChargeItemDefinition') {
+        return [];
+      }
+      return [];
+    }),
+    createResource: vi.fn(async (resource: Resource) => {
+      const id = resource.resourceType === 'Condition' ? `condition-${created.length + 1}` : `charge-${created.length + 1}`;
+      const saved = { ...resource, id };
       created.push(saved);
       return saved;
     }),
+    updateResource: vi.fn(async (resource: Resource) => {
+      updated.push(resource);
+      return resource;
+    }),
+    download: vi.fn(),
   };
-
-  return medplum as unknown as MedplumClient & { created: WithId<ChargeItem>[] };
+  return medplum as unknown as MedplumClient & { created: Resource[]; updated: Resource[] };
 }
 
-function botEvent(input: Record<string, unknown> = { patientId: patient.id }, secrets = defaultSecrets()): any {
+function chartNote(text: string): WithId<ClinicalImpression> {
+  return {
+    resourceType: 'ClinicalImpression',
+    id: 'clinical-1',
+    status: 'in-progress',
+    subject: { reference: 'Patient/patient-123' },
+    encounter: { reference: 'Encounter/encounter-123' },
+    note: [{ text }],
+  };
+}
+
+function textDocRef(text: string): WithId<DocumentReference> {
+  return {
+    resourceType: 'DocumentReference',
+    id: 'doc-1',
+    status: 'current',
+    content: [{ attachment: { contentType: 'text/plain', data: Buffer.from(text).toString('base64') } }],
+  };
+}
+
+function existingCharge(code: string): WithId<ChargeItem> {
+  return {
+    resourceType: 'ChargeItem',
+    id: `charge-${code}`,
+    status: 'planned',
+    subject: { reference: 'Patient/patient-123' },
+    context: { reference: 'Encounter/encounter-123' },
+    code: { coding: [{ system: CPT, code }] },
+  };
+}
+
+function event(input: Record<string, unknown> = { encounterId: encounter.id }, secrets = defaultSecrets()): any {
   return { input, secrets };
 }
 
@@ -145,225 +135,116 @@ function defaultSecrets(): Record<string, { valueString: string }> {
   };
 }
 
-function textDocRef(text: string): WithId<DocumentReference> {
-  return {
-    resourceType: 'DocumentReference',
-    id: 'doc-text',
-    status: 'current',
-    content: [
-      {
-        attachment: {
-          contentType: 'text/plain',
-          data: Buffer.from(text, 'utf8').toString('base64'),
-        },
-      },
-    ],
-  };
-}
-
-function pdfDocRef(): WithId<DocumentReference> {
-  return {
-    resourceType: 'DocumentReference',
-    id: 'doc-pdf',
-    status: 'current',
-    content: [{ attachment: { contentType: 'application/pdf', url: 'Binary/pdf' } }],
-  };
-}
-
-function chartNote(text: string): WithId<ClinicalImpression> {
-  return {
-    resourceType: 'ClinicalImpression',
-    id: 'chart-note',
-    status: 'completed',
-    subject: { reference: 'Patient/patient-123' },
-    note: [{ text }],
-  };
-}
-
-function existingChargeItem(code: string): WithId<ChargeItem> {
-  return {
-    resourceType: 'ChargeItem',
-    id: `existing-${code}`,
-    status: 'planned',
-    subject: { reference: 'Patient/patient-123' },
-    context: { reference: 'Encounter/encounter-new' },
-    code: { coding: [{ system: CPT, code }] },
-  };
-}
-
-function mockConstrueSuccess(): void {
+function mockSuccess(): void {
   phenomlMocks.extract.mockImplementation(async (request: any) => {
-    if (request.system?.name === 'CPT') {
+    if (request.system.name === 'CPT') {
       return {
-        system: request.system,
         codes: [
-          { code: '99215', description: 'Model suggested E/M', valid: true, reason: 'Suggested by model' },
-          { code: '90834', description: 'Psychotherapy', valid: true, reason: 'Psychotherapy documented' },
+          { code: '99214', description: 'Office visit', valid: true, reason: 'Documented E/M service' },
+          { code: '90834', description: 'Psychotherapy', valid: true, reason: 'Procedure documented' },
         ],
       };
     }
     return {
-      system: request.system,
-      codes: [{ code: 'F90.0', description: 'ADHD', valid: true, reason: 'Addressed today' }],
+      codes: [
+        {
+          code: ' f90.0 ',
+          description: 'ADHD',
+          valid: true,
+          reason: 'Active diagnosis',
+          citations: [{ text: 'ADHD', begin_offset: 12, end_offset: 16 }],
+        },
+      ],
     };
   });
 }
 
-describe('billing acuity helpers', () => {
-  test('computes E/M level boundaries', () => {
-    expect(computeEmLevel(['A'], [])).toBe('99212');
-    expect(computeEmLevel(['A', 'B'], [])).toBe('99213');
-    expect(computeEmLevel(['A', 'B', 'C'], [])).toBe('99213');
-    expect(computeEmLevel(['A', 'B', 'C'], ['medication management'])).toBe('99214');
-    expect(computeEmLevel(['A', 'B', 'C', 'D', 'E', 'F'], [])).toBe('99213');
-    expect(computeEmLevel(['A', 'B', 'C', 'D', 'E', 'F'], ['medication management'])).toBe('99215');
-  });
-
-  test('finds risk phrases case-insensitively', () => {
-    expect(findRiskHits('Plan includes Medication Management and a medication adjustment.')).toEqual([
-      'medication management',
-      'medication adjustment',
-    ]);
-  });
-
-  test('checks E/M CPT code range', () => {
-    expect(isEmCode('99202')).toBe(true);
-    expect(isEmCode('99215')).toBe(true);
-    expect(isEmCode('99201')).toBe(false);
-    expect(isEmCode('abc')).toBe(false);
-  });
-
-  test('picks the most recent encounter by period start with lastUpdated fallback', () => {
-    expect(
-      pickMostRecentEncounter([
-        { ...oldEncounter, meta: { lastUpdated: '2026-07-09T10:00:00.000Z' } },
-        { ...recentEncounter, period: { start: '2026-07-10T10:00:00.000Z' } },
-      ])?.id
-    ).toBe('encounter-new');
-    expect(
-      pickMostRecentEncounter([
-        { ...oldEncounter, meta: { lastUpdated: '2026-07-11T10:00:00.000Z' } },
-        { ...recentEncounter, period: undefined, meta: undefined },
-      ])?.id
-    ).toBe('encounter-old');
-    expect(pickMostRecentEncounter([])).toBeUndefined();
-  });
-});
-
-describe('billing acuity handler', () => {
+describe('billing acuity bot', () => {
   beforeEach(() => {
     phenomlMocks.constructor.mockClear();
     phenomlMocks.extract.mockReset();
-    mockConstrueSuccess();
+    mockSuccess();
   });
 
-  test('throws when PhenoML secrets are missing', async () => {
+  test('keeps the E/M range guard', () => {
+    expect(isEmCode('99202')).toBe(true);
+    expect(isEmCode('99215')).toBe(true);
+    expect(isEmCode('99201')).toBe(false);
+  });
+
+  test('requires credentials and encounterId', async () => {
+    await expect(handler(createMockMedplum(), event({ encounterId: encounter.id }, {}))).rejects.toThrow(
+      'PhenoML credentials'
+    );
+    await expect(handler(createMockMedplum(), event({}))).rejects.toThrow('encounterId is required');
+  });
+
+  test('creates a cited Condition, appends one ranked diagnosis update, and creates all CPT codes', async () => {
     const medplum = createMockMedplum();
-    await expect(handler(medplum, botEvent({ patientId: patient.id }, {}))).rejects.toThrow('PhenoML credentials');
-  });
+    const result = await handler(medplum, event());
 
-  test('throws when no encounter exists for the patient', async () => {
-    const medplum = createMockMedplum({ encounters: [] });
-    await expect(handler(medplum, botEvent())).rejects.toThrow('No encounter found');
-  });
-
-  test('throws when the encounter has no text input', async () => {
-    const medplum = createMockMedplum({ docRefs: [], clinicalImpressions: [] });
-    await expect(handler(medplum, botEvent())).rejects.toThrow('No text found');
-  });
-
-  test('creates heuristic E/M and procedure ChargeItems on the most recent encounter', async () => {
-    const medplum = createMockMedplum({
-      definitions: [
-        {
-          resourceType: 'ChargeItemDefinition',
-          id: 'def-other',
-          status: 'active',
-          url: 'http://example.com/ChargeItemDefinition/other',
-          code: { coding: [{ system: CPT, code: '90837' }] },
-        },
-        {
-          resourceType: 'ChargeItemDefinition',
-          id: 'def-90834',
-          status: 'active',
-          url: 'http://example.com/ChargeItemDefinition/90834',
-          code: { coding: [{ system: CPT, code: '90834' }] },
-        },
+    expect(result.createdConditions).toEqual([{ id: 'condition-1', code: 'F90.0', display: 'ADHD', citationCount: 1 }]);
+    expect(result.createdChargeItems.map((item) => item.code)).toEqual(['99214', '90834']);
+    const condition = medplum.created.find((resource) => resource.resourceType === 'Condition') as Condition;
+    expect(condition.code?.coding?.[0]).toMatchObject({
+      system: 'http://hl7.org/fhir/sid/icd-10-cm',
+      code: 'F90.0',
+    });
+    expect(condition.note?.[0]?.text).toBe('Active diagnosis');
+    expect(condition.extension).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: 'https://example.org/fhir/StructureDefinition/billing-acuity-source',
+          valueString: 'billing-acuity',
+        }),
+        expect.objectContaining({
+          url: 'https://example.org/fhir/StructureDefinition/billing-citation',
+          extension: expect.arrayContaining([expect.objectContaining({ url: 'text', valueString: 'ADHD' })]),
+        }),
+      ])
+    );
+    expect(medplum.updateResource).toHaveBeenCalledTimes(1);
+    expect(medplum.updated[0]).toMatchObject({
+      resourceType: 'Encounter',
+      diagnosis: [
+        { condition: { reference: 'Condition/condition-existing' }, rank: 1 },
+        { condition: { reference: 'Condition/condition-1' }, rank: 2 },
       ],
     });
-
-    const result = await handler(medplum, botEvent());
-
-    expect(phenomlMocks.constructor).toHaveBeenCalledWith({
-      clientId: 'client-id',
-      clientSecret: 'client-secret',
-      baseUrl: 'https://example.pheno.ml',
-    });
-    expect(result.encounterId).toBe('encounter-new');
-    expect(result.emCode).toBe('99214');
-    expect(result.modelSuggestedEmCode).toBe('99215');
-    expect(result.createdChargeItems.map((item) => item.code)).toEqual(['99214', '90834']);
-    expect(result.createdChargeItems.map((item) => item.code)).not.toContain('99215');
-
-    expect(medplum.created).toHaveLength(2);
-    for (const chargeItem of medplum.created) {
-      expect(chargeItem.context?.reference).toBe('Encounter/encounter-new');
-      expect(chargeItem.code?.coding?.[0]?.system).toBe(CPT);
-      expect(chargeItem.occurrenceDateTime).toBe('2026-07-08T14:00:00.000Z');
-    }
-    expect(medplum.created[0].definitionCanonical).toBeUndefined();
-    expect(medplum.created[1].definitionCanonical).toEqual(['http://example.com/ChargeItemDefinition/90834']);
-    expect(medplum.searchResources).toHaveBeenCalledWith('ChargeItemDefinition', 'status=active&_count=100');
+    const requests = phenomlMocks.extract.mock.calls.map((call) => call[0]);
+    expect(requests[0].text).toBe('Patient has ADHD and received psychotherapy today.\n\nAdditional context.');
+    expect(requests.find((request) => request.system.name === 'CPT').config.chunking_method).toBe('none');
+    expect(requests.find((request) => request.system.name === 'ICD-10-CM').config.include_citations).toBe(true);
   });
 
-  test('skips duplicate CPT codes', async () => {
-    const medplum = createMockMedplum({ chargeItems: [existingChargeItem('99214')] });
+  test('deduplicates diagnoses and exact charges and permits only one E/M code', async () => {
+    phenomlMocks.extract.mockImplementation(async (request: any) =>
+      request.system.name === 'CPT'
+        ? { codes: [{ code: '99214', valid: true }, { code: '90834', valid: true }] }
+        : { codes: [{ code: 'F32.1', valid: true }] }
+    );
+    const medplum = createMockMedplum({ chargeItems: [existingCharge('99213'), existingCharge('90834')] });
+    const result = await handler(medplum, event());
 
-    const result = await handler(medplum, botEvent());
-
-    expect(result.skippedDuplicates).toEqual(['99214']);
-    expect(result.createdChargeItems.map((item) => item.code)).toEqual(['90834']);
-    expect(medplum.created).toHaveLength(1);
+    expect(result.skippedDuplicateDiagnoses).toEqual(['F32.1']);
+    expect(result.skippedDuplicateCharges).toEqual(['99214', '90834']);
+    expect(result.createdConditions).toEqual([]);
+    expect(result.createdChargeItems).toEqual([]);
+    expect(medplum.updateResource).not.toHaveBeenCalled();
   });
 
-  test('skips the E/M candidate when a different-level E/M code already exists', async () => {
-    const medplum = createMockMedplum({ chargeItems: [existingChargeItem('99213')] });
-
-    const result = await handler(medplum, botEvent());
-
-    expect(result.emCode).toBe('99214');
-    expect(result.skippedDuplicates).toContain('99214');
-    expect(result.createdChargeItems.map((item) => item.code)).toEqual(['90834']);
-    expect(result.createdChargeItems.every((item) => !isEmCode(item.code))).toBe(true);
-    expect(medplum.created).toHaveLength(1);
-  });
-
-  test('continues when one construe system fails and counts skipped PDF attachments', async () => {
+  test('continues on one extraction failure and throws when both fail', async () => {
     phenomlMocks.extract.mockImplementation(async (request: any) => {
-      if (request.system?.name === 'CPT') {
+      if (request.system.name === 'CPT') {
         throw new Error('CPT unavailable');
       }
-      return {
-        system: request.system,
-        codes: [{ code: 'F90.0', description: 'ADHD', valid: true, reason: 'Addressed today' }],
-      };
+      return { codes: [{ code: 'I10', description: 'Hypertension', valid: true }] };
     });
-    const medplum = createMockMedplum({ docRefs: [textDocRef('Medication management today.'), pdfDocRef()] });
+    const partial = await handler(createMockMedplum(), event());
+    expect(partial.createdConditions[0].code).toBe('I10');
+    expect(partial.warnings[0]).toContain('CPT extraction failed');
 
-    const result = await handler(medplum, botEvent());
-
-    expect(result.skippedAttachments).toBe(1);
-    expect(result.warnings.some((warning) => warning.includes('CPT extraction failed'))).toBe(true);
-    expect(result.createdChargeItems.map((item) => item.code)).toEqual(['99214']);
-  });
-
-  test('throws when both construe calls fail and there are no encounter Conditions', async () => {
-    phenomlMocks.extract.mockRejectedValue(new Error('service unavailable'));
-    const medplum = createMockMedplum({
-      encounters: [{ ...recentEncounter, diagnosis: [] }],
-      conditions: {},
-    });
-
-    await expect(handler(medplum, botEvent())).rejects.toThrow('PhenoML construe failed');
+    phenomlMocks.extract.mockRejectedValue(new Error('unavailable'));
+    await expect(handler(createMockMedplum(), event())).rejects.toThrow('PhenoML construe failed');
   });
 });

@@ -1,7 +1,13 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 import type { BotEvent, MedplumClient, WithId } from '@medplum/core';
-import { CPT, HTTP_HL7_ORG, createReference } from '@medplum/core';
+import {
+  CPT,
+  HTTP_HL7_ORG,
+  HTTP_TERMINOLOGY_HL7_ORG,
+  addProfileToResource,
+  createReference,
+} from '@medplum/core';
 import type {
   Attachment,
   ChargeItem,
@@ -10,6 +16,7 @@ import type {
   Coding,
   Condition,
   Encounter,
+  Extension,
   Patient,
   Reference,
 } from '@medplum/fhirtypes';
@@ -18,23 +25,22 @@ import type { phenoml } from 'phenoml';
 import { phenomlClient } from 'phenoml';
 
 /**
- * A Medplum Bot that checks the patient's most recent encounter for billing codes using
- * PhenoML construe. CPT usage is subject to AMA requirements; see PhenoML Terms of Service.
+ * Reviews one encounter's chart text with PhenoML Construe and immediately
+ * creates the extracted diagnoses and charges. CPT usage is subject to AMA
+ * requirements; see the PhenoML Terms of Service.
  */
 
 interface BillingAcuityInput {
-  patientId: string;
+  encounterId: string;
 }
 
 export interface BillingAcuityResult {
   encounter: string;
   encounterId: string;
-  emCode: string;
-  emRationale: { problemCount: number; problemCodes: string[]; riskHits: string[] };
-  modelSuggestedEmCode?: string;
+  createdConditions: { id: string; code: string; display?: string; citationCount: number }[];
   createdChargeItems: { id: string; code: string; display?: string }[];
-  skippedDuplicates: string[];
-  extractedDiagnoses: { code: string; description?: string; rationale?: string }[];
+  skippedDuplicateDiagnoses: string[];
+  skippedDuplicateCharges: string[];
   warnings: string[];
   skippedAttachments: number;
 }
@@ -54,11 +60,15 @@ interface CodeCandidate {
 type ExtractCodesResult = phenoml.construe.ExtractCodesResult;
 type ExtractedCodeResult = phenoml.construe.ExtractedCodeResult;
 type ExtractRequest = phenoml.construe.ExtractRequest;
+type Citation = phenoml.construe.Citation;
 
 const CONSTRUE_TIMEOUT_SECONDS = 50;
 const ICD10_CM = `${HTTP_HL7_ORG}/fhir/sid/icd-10-cm`;
 const SERVICE_BILLING_CODE_URL = `${HTTP_HL7_ORG}/fhir/uv/order-catalog/StructureDefinition/ServiceBillingCode`;
-const RISK_PHRASES = ['prescription drug management', 'medication management', 'medication adjustment'];
+const BILLING_ACUITY_SOURCE_EXTENSION_URL =
+  'https://example.org/fhir/StructureDefinition/billing-acuity-source';
+const BILLING_CITATION_EXTENSION_URL = 'https://example.org/fhir/StructureDefinition/billing-citation';
+const BILLING_ACUITY_SOURCE = 'billing-acuity';
 
 const CPT_EXTRACTION_CONTEXT = [
   'Outpatient medical billing for this clinic visit.',
@@ -73,56 +83,8 @@ const ICD_EXTRACTION_CONTEXT = [
   'Do NOT code chronic problem-list or past-history conditions that were not addressed today.',
 ].join(' ');
 
-const EM_DISPLAY: Record<string, string> = {
-  '99212': 'Office/outpatient established patient visit, level 2',
-  '99213': 'Office/outpatient established patient visit, level 3',
-  '99214': 'Office/outpatient established patient visit, level 4',
-  '99215': 'Office/outpatient established patient visit, level 5',
-};
-
-export function findRiskHits(text: string): string[] {
-  const lower = text.toLowerCase();
-  return RISK_PHRASES.filter((phrase) => lower.includes(phrase));
-}
-
-export function computeEmLevel(problemCodes: string[], riskHits: string[]): string {
-  const problemCount = unique(problemCodes).length;
-  const hasRisk = riskHits.length > 0;
-
-  if (problemCount >= 6 && hasRisk) {
-    return '99215';
-  }
-  if (problemCount >= 3 && hasRisk) {
-    return '99214';
-  }
-  if (problemCount >= 2) {
-    return '99213';
-  }
-  return '99212';
-}
-
 export function isEmCode(code: string | undefined): boolean {
-  if (!code) {
-    return false;
-  }
-  return /^992(0[2-9]|1[0-5])$/.test(code.trim());
-}
-
-export function pickMostRecentEncounter(encounters: Encounter[]): Encounter | undefined {
-  if (encounters.length === 0) {
-    return undefined;
-  }
-
-  let best = encounters[0];
-  let bestTime = getEncounterSortTime(best);
-  for (const encounter of encounters.slice(1)) {
-    const time = getEncounterSortTime(encounter);
-    if (time !== undefined && (bestTime === undefined || time > bestTime)) {
-      best = encounter;
-      bestTime = time;
-    }
-  }
-  return best;
+  return Boolean(code && /^992(0[2-9]|1[0-5])$/.test(code.trim()));
 }
 
 export async function handler(
@@ -139,22 +101,16 @@ export async function handler(
     throw new Error('PhenoML base url required');
   }
 
-  const patientId = event.input.patientId;
-  if (!patientId) {
-    throw new Error('patientId is required');
+  const encounterId = event.input.encounterId;
+  if (!encounterId) {
+    throw new Error('encounterId is required');
   }
 
-  const patient = await medplum.readResource('Patient', patientId);
-  const encounters = await medplum.searchResources(
-    'Encounter',
-    `subject=Patient/${patientId}&_count=50&_sort=-_lastUpdated`
-  );
-  const selectedEncounter = pickMostRecentEncounter(encounters);
-  if (!selectedEncounter?.id) {
-    throw new Error(`No encounter found for Patient/${patientId}`);
+  const encounter = await medplum.readResource('Encounter', encounterId);
+  if (!encounter.subject?.reference) {
+    throw new Error(`Encounter/${encounterId} has no patient subject`);
   }
-
-  const encounter = selectedEncounter as WithId<Encounter>;
+  const patient = await medplum.readReference(encounter.subject as Reference<Patient>);
   const encounterRef = `Encounter/${encounter.id}`;
   const textResult = await gatherEncounterText(medplum, encounterRef);
   const combinedText = textResult.text.trim();
@@ -163,73 +119,73 @@ export async function handler(
   }
 
   const warnings = [...textResult.warnings];
-  const conditionProblemCodes = await collectEncounterConditionCodes(medplum, encounter, warnings);
   const client = new phenomlClient({ clientId, clientSecret, baseUrl });
-
   const [cptSettled, icdSettled] = await Promise.allSettled([
     extractConstrueCodes(client, buildCptRequest(combinedText), baseUrl, 'CPT'),
     extractConstrueCodes(client, buildIcdRequest(combinedText), baseUrl, 'ICD-10-CM'),
   ]);
-
   const cptResult = getSettledResult(cptSettled, warnings);
   const icdResult = getSettledResult(icdSettled, warnings);
-
-  if (!cptResult && !icdResult && conditionProblemCodes.length === 0) {
-    throw new Error(`PhenoML construe failed and no encounter Conditions were available: ${warnings.join('; ')}`);
+  if (!cptResult && !icdResult) {
+    throw new Error(`PhenoML construe failed: ${warnings.join('; ')}`);
   }
 
-  const validIcdCodes = validExtractedCodes(icdResult);
-  const extractedDiagnoses = validIcdCodes.map((code) => ({
-    code: normalizeProblemCode(code.code),
-    description: code.description,
-    rationale: code.reason,
-  }));
-  const problemCodes = unique([
-    ...conditionProblemCodes,
-    ...validIcdCodes.map((code) => normalizeProblemCode(code.code)),
-  ]);
-  const riskHits = findRiskHits(combinedText);
-  const emCode = computeEmLevel(problemCodes, riskHits);
-  const modelSuggestedEmCode = validExtractedCodes(cptResult).find((code) => isEmCode(code.code))?.code;
-  const procedureCandidates = getProcedureCandidates(cptResult);
+  const existingDiagnosisCodes = new Set(await collectEncounterConditionCodes(medplum, encounter, warnings));
+  const createdConditions: BillingAcuityResult['createdConditions'] = [];
+  const skippedDuplicateDiagnoses: string[] = [];
+  const diagnosis = [...(encounter.diagnosis ?? [])];
 
-  const candidates: CodeCandidate[] = [
-    {
-      code: emCode,
-      display: EM_DISPLAY[emCode],
-      rationale: buildEmRationale(problemCodes, riskHits, modelSuggestedEmCode),
-    },
-    ...procedureCandidates,
-  ];
+  for (const extracted of uniqueExtractedCodes(icdResult, normalizeIcdCode)) {
+    const code = normalizeIcdCode(extracted.code);
+    if (existingDiagnosisCodes.has(code)) {
+      skippedDuplicateDiagnoses.push(code);
+      continue;
+    }
+
+    const condition = await createIcdCondition(medplum, patient, encounter, extracted);
+    existingDiagnosisCodes.add(code);
+    diagnosis.push({ condition: createReference(condition), rank: diagnosis.length + 1 });
+    createdConditions.push({
+      id: condition.id,
+      code,
+      ...(extracted.description ? { display: extracted.description } : {}),
+      citationCount: extracted.citations?.length ?? 0,
+    });
+  }
+  if (createdConditions.length > 0) {
+    await medplum.updateResource({ ...encounter, diagnosis });
+  }
 
   const existingChargeItems = await medplum.searchResources('ChargeItem', `context=${encounterRef}`);
   const existingCptCodes = getCptCodes(existingChargeItems);
-  const hasExistingEmCode = Array.from(existingCptCodes).some(isEmCode);
-  const skippedDuplicates: string[] = [];
-  const createdChargeItems: { id: string; code: string; display?: string }[] = [];
+  let hasEmCode = Array.from(existingCptCodes).some(isEmCode);
+  const createdChargeItems: BillingAcuityResult['createdChargeItems'] = [];
+  const skippedDuplicateCharges: string[] = [];
 
-  for (const candidate of candidates) {
-    // An encounter carries only one office-visit E/M code, so skip the E/M candidate when
-    // any E/M ChargeItem already exists (even at a different level), not just on an exact match.
-    if (existingCptCodes.has(candidate.code) || (isEmCode(candidate.code) && hasExistingEmCode)) {
-      skippedDuplicates.push(candidate.code);
+  for (const extracted of uniqueExtractedCodes(cptResult, (code) => code.trim())) {
+    const candidate: CodeCandidate = {
+      code: extracted.code.trim(),
+      ...(extracted.description ? { display: extracted.description } : {}),
+      ...(extracted.reason ? { rationale: extracted.reason } : {}),
+    };
+    if (existingCptCodes.has(candidate.code) || (isEmCode(candidate.code) && hasEmCode)) {
+      skippedDuplicateCharges.push(candidate.code);
       continue;
     }
 
     const chargeItem = await createCptChargeItem(medplum, patient, encounter, candidate);
     existingCptCodes.add(candidate.code);
-    createdChargeItems.push({ id: chargeItem.id, code: candidate.code, display: candidate.display });
+    hasEmCode ||= isEmCode(candidate.code);
+    createdChargeItems.push({ id: chargeItem.id, code: candidate.code, ...(candidate.display ? { display: candidate.display } : {}) });
   }
 
   return {
     encounter: encounterRef,
     encounterId: encounter.id,
-    emCode,
-    emRationale: { problemCount: problemCodes.length, problemCodes, riskHits },
-    modelSuggestedEmCode,
+    createdConditions,
     createdChargeItems,
-    skippedDuplicates,
-    extractedDiagnoses,
+    skippedDuplicateDiagnoses,
+    skippedDuplicateCharges,
     warnings,
     skippedAttachments: textResult.skippedAttachments,
   };
@@ -240,6 +196,12 @@ async function gatherEncounterText(medplum: MedplumClient, encounterRef: string)
   let skippedAttachments = 0;
   const textParts: string[] = [];
 
+  const clinicalImpressions = await medplum.searchResources('ClinicalImpression', `encounter=${encounterRef}`);
+  const chartNote = clinicalImpressions[0]?.note?.[0]?.text;
+  if (chartNote?.trim()) {
+    textParts.push(chartNote);
+  }
+
   const docRefs = await medplum.searchResources('DocumentReference', `encounter=${encounterRef}&status=current`);
   for (const docRef of docRefs) {
     for (const content of docRef.content ?? []) {
@@ -248,7 +210,6 @@ async function gatherEncounterText(medplum: MedplumClient, encounterRef: string)
         skippedAttachments += 1;
         continue;
       }
-
       try {
         const text = await readTextAttachment(medplum, attachment);
         if (text.trim()) {
@@ -260,12 +221,6 @@ async function gatherEncounterText(medplum: MedplumClient, encounterRef: string)
         );
       }
     }
-  }
-
-  const clinicalImpressions = await medplum.searchResources('ClinicalImpression', `encounter=${encounterRef}`);
-  const chartNote = clinicalImpressions[0]?.note?.[0]?.text;
-  if (chartNote?.trim()) {
-    textParts.push(chartNote);
   }
 
   return { text: textParts.join('\n\n'), warnings, skippedAttachments };
@@ -292,13 +247,11 @@ async function collectEncounterConditionCodes(
   warnings: string[]
 ): Promise<string[]> {
   const codes: string[] = [];
-
   for (const diagnosis of encounter.diagnosis ?? []) {
     const conditionRef = diagnosis.condition as Reference<Condition> | undefined;
     if (!conditionRef?.reference || conditionRef.reference.startsWith('#')) {
       continue;
     }
-
     try {
       const condition = await medplum.readReference(conditionRef);
       codes.push(...getIcd10CmCodes(condition));
@@ -306,15 +259,14 @@ async function collectEncounterConditionCodes(
       warnings.push(`Failed to read ${conditionRef.reference}: ${errorMessage(err)}`);
     }
   }
-
-  return unique(codes);
+  return Array.from(new Set(codes));
 }
 
 function getIcd10CmCodes(condition: Condition): string[] {
   return (
     condition.code?.coding
       ?.filter((coding) => coding.system === ICD10_CM && coding.code)
-      .map((coding) => normalizeProblemCode(coding.code as string)) ?? []
+      .map((coding) => normalizeIcdCode(coding.code as string)) ?? []
   );
 }
 
@@ -377,30 +329,81 @@ function getSettledResult(
 }
 
 function validExtractedCodes(result: ExtractCodesResult | undefined): ExtractedCodeResult[] {
-  return result?.codes?.filter(isValidExtractedCode) ?? [];
+  return result?.codes?.filter((code) => code.valid && Boolean(code.code?.trim())) ?? [];
 }
 
-function isValidExtractedCode(code: ExtractedCodeResult): boolean {
-  const valid = (code as { valid?: boolean }).valid;
-  return valid !== false && Boolean(code.code?.trim());
-}
-
-function getProcedureCandidates(result: ExtractCodesResult | undefined): CodeCandidate[] {
-  const candidates = new Map<string, CodeCandidate>();
-
-  for (const code of validExtractedCodes(result)) {
-    const normalizedCode = code.code.trim();
-    if (isEmCode(normalizedCode) || candidates.has(normalizedCode)) {
-      continue;
+function uniqueExtractedCodes(
+  result: ExtractCodesResult | undefined,
+  normalize: (code: string) => string
+): ExtractedCodeResult[] {
+  const codes = new Map<string, ExtractedCodeResult>();
+  for (const extracted of validExtractedCodes(result)) {
+    const code = normalize(extracted.code);
+    if (code && !codes.has(code)) {
+      codes.set(code, extracted);
     }
-    candidates.set(normalizedCode, {
-      code: normalizedCode,
-      display: code.description,
-      rationale: code.reason,
-    });
   }
+  return Array.from(codes.values());
+}
 
-  return Array.from(candidates.values());
+async function createIcdCondition(
+  medplum: MedplumClient,
+  patient: WithId<Patient>,
+  encounter: WithId<Encounter>,
+  extracted: ExtractedCodeResult
+): Promise<WithId<Condition>> {
+  const code = normalizeIcdCode(extracted.code);
+  const condition = addProfileToResource<Condition>(
+    {
+      resourceType: 'Condition',
+      category: [
+        {
+          coding: [
+            {
+              system: `${HTTP_TERMINOLOGY_HL7_ORG}/CodeSystem/condition-category`,
+              code: 'problem-list-item',
+              display: 'Problem List Item',
+            },
+          ],
+          text: 'Problem List Item',
+        },
+      ],
+      subject: createReference(patient),
+      encounter: createReference(encounter),
+      code: {
+        coding: [{ system: ICD10_CM, code, ...(extracted.description ? { display: extracted.description } : {}) }],
+        text: extracted.description ?? code,
+      },
+      clinicalStatus: {
+        coding: [
+          {
+            system: `${HTTP_TERMINOLOGY_HL7_ORG}/CodeSystem/condition-clinical`,
+            code: 'active',
+            display: 'Active',
+          },
+        ],
+      },
+      extension: [billingSourceExtension(), ...(extracted.citations ?? []).map(citationExtension)],
+      ...(extracted.reason ? { note: [{ text: extracted.reason }] } : {}),
+    },
+    `${HTTP_HL7_ORG}/fhir/us/core/StructureDefinition/us-core-condition-problems-health-concerns`
+  );
+  return medplum.createResource(condition);
+}
+
+function citationExtension(citation: Citation): Extension {
+  return {
+    url: BILLING_CITATION_EXTENSION_URL,
+    extension: [
+      { url: 'text', valueString: citation.text },
+      { url: 'beginOffset', valueInteger: citation.begin_offset },
+      { url: 'endOffset', valueInteger: citation.end_offset },
+    ],
+  };
+}
+
+function billingSourceExtension(): Extension {
+  return { url: BILLING_ACUITY_SOURCE_EXTENSION_URL, valueString: BILLING_ACUITY_SOURCE };
 }
 
 function getCptCodes(chargeItems: ChargeItem[]): Set<string> {
@@ -423,7 +426,7 @@ async function createCptChargeItem(
 ): Promise<WithId<ChargeItem>> {
   const codeableConcept = buildCptConcept(candidate);
   const definitionUrl = await findChargeItemDefinitionUrl(medplum, candidate.code);
-  const chargeItem: ChargeItem = {
+  return medplum.createResource({
     resourceType: 'ChargeItem',
     status: 'planned',
     subject: createReference(patient),
@@ -431,12 +434,13 @@ async function createCptChargeItem(
     occurrenceDateTime: encounter.period?.start ?? new Date().toISOString(),
     code: codeableConcept,
     quantity: { value: 1 },
-    extension: [{ url: SERVICE_BILLING_CODE_URL, valueCodeableConcept: codeableConcept }],
+    extension: [
+      { url: SERVICE_BILLING_CODE_URL, valueCodeableConcept: codeableConcept },
+      billingSourceExtension(),
+    ],
     ...(candidate.rationale ? { note: [{ text: candidate.rationale }] } : {}),
     ...(definitionUrl ? { definitionCanonical: [definitionUrl] } : {}),
-  };
-
-  return medplum.createResource(chargeItem);
+  });
 }
 
 function buildCptConcept(candidate: CodeCandidate): CodeableConcept {
@@ -450,7 +454,6 @@ function buildCptConcept(candidate: CodeCandidate): CodeableConcept {
 
 async function findChargeItemDefinitionUrl(medplum: MedplumClient, code: string): Promise<string | undefined> {
   try {
-    // ChargeItemDefinition has no `code` search parameter in FHIR R4, so filter client-side.
     const definitions = await medplum.searchResources('ChargeItemDefinition', 'status=active&_count=100');
     return definitions.find((definition) => chargeItemDefinitionHasCode(definition, code))?.url;
   } catch {
@@ -462,40 +465,8 @@ function chargeItemDefinitionHasCode(definition: ChargeItemDefinition, code: str
   return definition.code?.coding?.some((coding) => coding.system === CPT && coding.code === code) ?? false;
 }
 
-function buildEmRationale(
-  problemCodes: string[],
-  riskHits: string[],
-  modelSuggestedEmCode: string | undefined
-): string {
-  const parts = [
-    `E/M heuristic selected from ${problemCodes.length} problem(s)`,
-    `problems: ${problemCodes.join(', ') || 'none'}`,
-    `risk hits: ${riskHits.join(', ') || 'none'}`,
-  ];
-  if (modelSuggestedEmCode) {
-    parts.push(`model suggested E/M: ${modelSuggestedEmCode}`);
-  }
-  return parts.join('; ');
-}
-
-function getEncounterSortTime(encounter: Encounter): number | undefined {
-  return parseTime(encounter.period?.start) ?? parseTime(encounter.meta?.lastUpdated);
-}
-
-function parseTime(value: string | undefined): number | undefined {
-  if (!value) {
-    return undefined;
-  }
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? undefined : parsed;
-}
-
-function normalizeProblemCode(code: string): string {
+function normalizeIcdCode(code: string): string {
   return code.trim().toUpperCase();
-}
-
-function unique(values: string[]): string[] {
-  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }
 
 function errorMessage(err: unknown): string {

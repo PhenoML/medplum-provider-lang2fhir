@@ -3,13 +3,14 @@
 import { MantineProvider } from '@mantine/core';
 import type { WithId } from '@medplum/core';
 import { createReference } from '@medplum/core';
-import type { ClinicalImpression, Encounter, Practitioner, Provenance, Task } from '@medplum/fhirtypes';
+import type { ChargeItem, ClinicalImpression, Encounter, Practitioner, Provenance, Task } from '@medplum/fhirtypes';
 import { HomerSimpson, MockClient } from '@medplum/mock';
 import { MedplumProvider } from '@medplum/react';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import * as chargeItemsUtils from '../../utils/chargeitems';
 import { EncounterChart } from './EncounterChart';
 
 const mockPractitioner: WithId<Practitioner> = {
@@ -124,6 +125,62 @@ describe('EncounterChart', () => {
       },
       { timeout: 3000 }
     );
+  });
+
+  test('flushes the note, executes review for the open encounter, and shows the review view', async () => {
+    const user = userEvent.setup();
+    const reviewedCharge: WithId<ChargeItem> = {
+      resourceType: 'ChargeItem',
+      id: 'charge-reviewed',
+      status: 'planned',
+      subject: { reference: `Patient/${HomerSimpson.id}` },
+      context: { reference: 'Encounter/encounter-123' },
+      code: { coding: [{ system: 'http://www.ama-assn.org/go/cpt', code: '90834', display: 'Psychotherapy' }] },
+      extension: [
+        {
+          url: 'https://example.org/fhir/StructureDefinition/billing-acuity-source',
+          valueString: 'billing-acuity',
+        },
+      ],
+    };
+    const chargeItemsSpy = vi
+      .spyOn(chargeItemsUtils, 'getChargeItemsForEncounter')
+      .mockResolvedValue([reviewedCharge]);
+    vi.spyOn(medplum, 'searchOne').mockResolvedValue({
+      resourceType: 'Bot',
+      id: 'billing-bot',
+      name: 'billing-acuity',
+    });
+    const executeSpy = vi.spyOn(medplum, 'executeBot').mockResolvedValue({
+      createdConditions: [],
+      createdChargeItems: [{ id: 'charge-reviewed', code: '90834' }],
+      skippedDuplicateDiagnoses: [],
+      skippedDuplicateCharges: [],
+    });
+    const readSpy = vi.spyOn(medplum, 'readResource');
+    const updateSpy = vi.spyOn(medplum, 'updateResource');
+
+    setup();
+    await user.click(await screen.findByRole('button', { name: 'Review Chart' }));
+
+    await waitFor(() => {
+      expect(executeSpy).toHaveBeenCalledWith(
+        'billing-bot',
+        { encounterId: 'encounter-123' },
+        'application/json'
+      );
+      expect(readSpy).toHaveBeenCalledWith(
+        'Encounter',
+        'encounter-123',
+        expect.objectContaining({ cache: 'no-cache' })
+      );
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ resourceType: 'ClinicalImpression', note: [{ text: 'Test clinical note' }] })
+      );
+      expect(screen.getByText('Psychotherapy')).toBeInTheDocument();
+    });
+
+    chargeItemsSpy.mockRestore();
   });
 
   test('displays tasks when available', async () => {
