@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { getExtensionValue } from '@medplum/core';
 import type { ChargeItem, Condition, Extension } from '@medplum/fhirtypes';
+import { computeEmAcuity, isEmCode } from './emAcuity';
+import type { EmAcuity } from './emAcuity';
 
 // Keep these in sync with src/bots/billing-acuity.ts. Bots cannot import from
 // src/utils because tsconfig-bots.json limits their rootDir to src/bots.
@@ -23,6 +25,7 @@ export interface ReviewCodeItem {
   system: string;
   display?: string;
   rationale?: string;
+  acuity?: EmAcuity;
   citations: NoteCitation[];
   resource: Condition | ChargeItem;
 }
@@ -53,8 +56,12 @@ export function isBotGenerated(resource: Condition | ChargeItem): boolean {
   return getExtensionValue(resource, BILLING_ACUITY_SOURCE_EXTENSION_URL) === BILLING_ACUITY_SOURCE;
 }
 
-export function buildReviewItems(conditions: Condition[], chargeItems: ChargeItem[]): ReviewCodeItem[] {
-  return [...conditions, ...chargeItems].flatMap((resource): ReviewCodeItem[] => {
+export function buildReviewItems(
+  conditions: Condition[],
+  chargeItems: ChargeItem[],
+  riskContext?: { hasPrescriptionManagement: boolean }
+): ReviewCodeItem[] {
+  const items = [...conditions, ...chargeItems].flatMap((resource): ReviewCodeItem[] => {
     if (!resource.id || !isBotGenerated(resource)) {
       return [];
     }
@@ -75,6 +82,25 @@ export function buildReviewItems(conditions: Condition[], chargeItems: ChargeIte
         resource,
       },
     ];
+  });
+
+  // With the patient's prescription-management context available, attach the diagnosis-count
+  // acuity rationale to each E/M charge. The count is the diagnoses shown in the panel, so
+  // dropping one recomputes it live.
+  if (riskContext === undefined) {
+    return items;
+  }
+  const problemCount = items.filter((item) => item.kind === 'diagnosis').length;
+  return items.map((item) => {
+    if (item.kind !== 'charge' || !isEmCode(item.code)) {
+      return item;
+    }
+    const acuity = computeEmAcuity({
+      billedCode: item.code,
+      problemCount,
+      hasPrescriptionManagement: riskContext.hasPrescriptionManagement,
+    });
+    return acuity ? { ...item, acuity } : item;
   });
 }
 

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
 import { MantineProvider } from '@mantine/core';
-import type { Condition } from '@medplum/fhirtypes';
+import type { ChargeItem, Condition } from '@medplum/fhirtypes';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
@@ -53,4 +53,26 @@ test('evidence panel shows quotes and invokes remove', async () => {
   await user.click(screen.getByRole('button', { name: 'Actions for I10' }));
   await user.click(await screen.findByText('Remove'));
   expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ key: 'Condition/condition-1' }));
+});
+
+test('evidence panel shows the E/M diagnosis-count rationale', () => {
+  const emCharge: ChargeItem = {
+    resourceType: 'ChargeItem',
+    id: 'charge-em',
+    status: 'planned',
+    subject: { reference: 'Patient/patient-1' },
+    code: { coding: [{ system: 'http://www.ama-assn.org/go/cpt', code: '99213' }] },
+    extension: [{ url: 'https://example.org/fhir/StructureDefinition/billing-acuity-source', valueString: 'billing-acuity' }],
+  };
+  const diagnoses = ['condition-1', 'condition-2', 'condition-3'].map((id) => ({ ...condition, id }));
+  render(
+    <MantineProvider>
+      <CodeEvidencePanel
+        items={buildReviewItems(diagnoses, [emCharge], { hasPrescriptionManagement: true })}
+        onRemove={vi.fn()}
+      />
+    </MantineProvider>
+  );
+  expect(screen.getByText('Possible undercoding')).toBeInTheDocument();
+  expect(screen.getByText(/Documentation supports 99214 \(3 diagnoses/)).toBeInTheDocument();
 });

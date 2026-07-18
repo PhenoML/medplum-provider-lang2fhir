@@ -12,6 +12,7 @@ import { getChargeItemsForEncounter } from '../../../utils/chargeitems';
 import { buildReviewItems } from '../../../utils/citations';
 import type { ReviewCodeItem } from '../../../utils/citations';
 import { fetchEncounterConditions, removeEncounterDiagnosis } from '../../../utils/conditions';
+import { hasActivePrescriptions } from '../../../utils/medications';
 import { showErrorNotification } from '../../../utils/notifications';
 import ConditionModal from '../../Conditions/ConditionModal';
 import { CodeEvidencePanel } from './CodeEvidencePanel';
@@ -55,18 +56,24 @@ export function ChartNoteReviewCard(props: ChartNoteReviewCardProps): JSX.Elemen
   const [activeKey, setActiveKey] = useState<string>();
   const [reviewing, setReviewing] = useState(false);
   const [editingCondition, setEditingCondition] = useState<Condition>();
-  const items = useMemo(() => buildReviewItems(conditions, chargeItems), [conditions, chargeItems]);
+  const [hasPrescriptionManagement, setHasPrescriptionManagement] = useState(false);
+  const items = useMemo(
+    () => buildReviewItems(conditions, chargeItems, { hasPrescriptionManagement }),
+    [conditions, chargeItems, hasPrescriptionManagement]
+  );
 
   const loadReviewItems = useCallback(
     async (currentEncounter: WithId<Encounter>): Promise<void> => {
-      const [nextConditions, nextChargeItems] = await Promise.all([
+      const [nextConditions, nextChargeItems, activePrescriptions] = await Promise.all([
         fetchEncounterConditions(medplum, currentEncounter),
         getChargeItemsForEncounter(medplum, currentEncounter),
+        hasActivePrescriptions(medplum, patient),
       ]);
       setConditions(nextConditions);
       setChargeItems(nextChargeItems);
+      setHasPrescriptionManagement(activePrescriptions);
     },
-    [medplum]
+    [medplum, patient]
   );
 
   useEffect(() => {

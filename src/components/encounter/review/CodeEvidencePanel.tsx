@@ -4,6 +4,7 @@ import { ActionIcon, Badge, Card, Group, Menu, Stack, Text } from '@mantine/core
 import { IconDotsVertical, IconEdit, IconTrash } from '@tabler/icons-react';
 import type { JSX } from 'react';
 import type { ReviewCodeItem } from '../../../utils/citations';
+import type { EmVerdict } from '../../../utils/emAcuity';
 
 export interface CodeEvidencePanelProps {
   items: ReviewCodeItem[];
@@ -12,6 +13,13 @@ export interface CodeEvidencePanelProps {
   onRemove: (item: ReviewCodeItem) => void | Promise<void>;
   onEdit?: (item: ReviewCodeItem) => void;
   showQuotes?: boolean;
+}
+
+function acuityLabel(verdict: EmVerdict): string {
+  if (verdict === 'match') {
+    return 'Level supported';
+  }
+  return verdict === 'undercoding' ? 'Possible undercoding' : 'Possible overcoding';
 }
 
 export function CodeEvidencePanel(props: CodeEvidencePanelProps): JSX.Element {
@@ -41,6 +49,21 @@ export function CodeEvidencePanel(props: CodeEvidencePanelProps): JSX.Element {
                 <Text size="xs" c="dimmed">
                   {item.rationale}
                 </Text>
+              )}
+              {item.acuity && (
+                <Group gap="xs" align="flex-start" wrap="nowrap">
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color={item.acuity.verdict === 'match' ? 'green' : 'yellow'}
+                    style={{ flexShrink: 0 }}
+                  >
+                    {acuityLabel(item.acuity.verdict)}
+                  </Badge>
+                  <Text size="xs" c="dimmed">
+                    {item.acuity.message}
+                  </Text>
+                </Group>
               )}
               <Text size="xs" c="dimmed">
                 {item.citations.length} citation{item.citations.length === 1 ? '' : 's'}

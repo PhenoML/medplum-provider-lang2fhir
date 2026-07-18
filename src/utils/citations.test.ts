@@ -62,19 +62,37 @@ test('builds segments with all keys on overlapping citations', () => {
 });
 
 describe('buildReviewItems', () => {
+  const emCharge: ChargeItem = {
+    resourceType: 'ChargeItem',
+    id: 'charge-em',
+    status: 'planned',
+    subject: { reference: 'Patient/patient-1' },
+    code: { coding: [{ system: 'http://www.ama-assn.org/go/cpt', code: '99213' }] },
+    extension: [{ url: BILLING_ACUITY_SOURCE_EXTENSION_URL, valueString: 'billing-acuity' }],
+  };
+
   test('filters unmarked resources and maps diagnoses and charges', () => {
-    const charge: ChargeItem = {
-      resourceType: 'ChargeItem',
-      id: 'charge-1',
-      status: 'planned',
-      subject: { reference: 'Patient/patient-1' },
-      code: { coding: [{ system: 'http://www.ama-assn.org/go/cpt', code: '99214' }] },
-      extension: [{ url: BILLING_ACUITY_SOURCE_EXTENSION_URL, valueString: 'billing-acuity' }],
-    };
+    const charge: ChargeItem = { ...emCharge, id: 'charge-1' };
     const unmarked = { ...condition, id: 'condition-2', extension: [] };
     expect(buildReviewItems([condition, unmarked], [charge]).map((item) => item.kind)).toEqual([
       'diagnosis',
       'charge',
     ]);
+  });
+
+  test('attaches E/M acuity from the diagnosis count when prescription context is provided', () => {
+    const diagnoses = ['condition-1', 'condition-2', 'condition-3'].map((id) => ({ ...condition, id }));
+    const items = buildReviewItems(diagnoses, [emCharge], { hasPrescriptionManagement: true });
+    expect(items.find((item) => item.kind === 'charge')?.acuity).toMatchObject({
+      billed: '99213',
+      expected: '99214',
+      problemCount: 3,
+      verdict: 'undercoding',
+    });
+  });
+
+  test('omits acuity when no risk context is provided', () => {
+    const items = buildReviewItems([condition], [emCharge]);
+    expect(items.find((item) => item.kind === 'charge')?.acuity).toBeUndefined();
   });
 });
