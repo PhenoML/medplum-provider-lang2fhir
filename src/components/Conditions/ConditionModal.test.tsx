@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { MantineProvider } from '@mantine/core';
 import type { WithId } from '@medplum/core';
-import type { Encounter, Patient } from '@medplum/fhirtypes';
+import type { Condition, Encounter, Patient } from '@medplum/fhirtypes';
 import { MockClient } from '@medplum/mock';
 import { MedplumProvider } from '@medplum/react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import ConditionModal from './ConditionModal';
 
@@ -77,5 +78,42 @@ describe('ConditionModal', () => {
     const { container } = setup();
     const form = container.querySelector('form');
     expect(form).toBeInTheDocument();
+  });
+
+  test('prefills an existing condition and preserves its id, extensions, and notes', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    const condition: Condition = {
+      resourceType: 'Condition',
+      id: 'condition-existing',
+      subject: { reference: 'Patient/patient-123' },
+      encounter: { reference: 'Encounter/encounter-123' },
+      code: {
+        coding: [
+          {
+            system: 'http://hl7.org/fhir/sid/icd-10-cm',
+            code: 'I10',
+            display: 'Essential hypertension',
+          },
+        ],
+      },
+      clinicalStatus: {
+        coding: [{ system: 'http://terminology.hl7.org/CodeSystem/condition-clinical', code: 'active' }],
+      },
+      extension: [{ url: 'https://example.org/source', valueString: 'billing-acuity' }],
+      note: [{ text: 'Managed today' }],
+    };
+    setup({ condition, onSubmit });
+
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'condition-existing',
+        extension: condition.extension,
+        note: condition.note,
+        code: condition.code,
+      })
+    );
   });
 });

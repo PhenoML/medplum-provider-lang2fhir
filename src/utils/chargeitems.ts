@@ -49,7 +49,9 @@ export async function getChargeItemsForEncounter(
     return [];
   }
 
-  const chargeItems = await medplum.searchResources('ChargeItem', `context=${getReferenceString(encounter)}`);
+  const chargeItems = await medplum.searchResources('ChargeItem', `context=${getReferenceString(encounter)}`, {
+    cache: 'no-cache',
+  });
   const updatedChargeItems = await Promise.all(
     chargeItems.map((chargeItem) => applyChargeItemDefinition(medplum, chargeItem))
   );

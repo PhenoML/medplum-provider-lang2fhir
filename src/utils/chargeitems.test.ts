@@ -103,6 +103,9 @@ describe('chargeitems utils', () => {
 
       const result = await getChargeItemsForEncounter(medplum, encounter);
 
+      expect(medplum.searchResources).toHaveBeenCalledWith('ChargeItem', 'context=Encounter/enc-1', {
+        cache: 'no-cache',
+      });
       expect(result).toEqual([chargeItem]);
     });
   });

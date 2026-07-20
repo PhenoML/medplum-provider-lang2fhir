@@ -17,6 +17,7 @@ interface EncounterHeaderProps {
   chartNoteStatus?: ChartNoteStatus;
   onStatusChange?: (status: Encounter['status']) => void;
   onTabChange?: (tab: string) => void;
+  activeTab?: string;
   onSign?: (practitioner: Reference<Practitioner>, lock: boolean) => void;
   onSignLock?: (practitioner: Reference<Practitioner>) => void;
 }
@@ -28,10 +29,12 @@ export const EncounterHeader = (props: EncounterHeaderProps): JSX.Element => {
     chartNoteStatus = ChartNoteStatus.Unsigned,
     onStatusChange,
     onTabChange,
+    activeTab: controlledActiveTab,
     onSign,
   } = props;
   const [status, setStatus] = useState<Encounter['status']>(encounter.status);
-  const [activeTab, setActiveTab] = useState('notes');
+  const [internalActiveTab, setInternalActiveTab] = useState('notes');
+  const activeTab = controlledActiveTab ?? internalActiveTab;
   const [confirmOpened, { open: openConfirm, close: closeConfirm }] = useDisclosure(false);
   const [signOpened, { open: openSign, close: closeSign }] = useDisclosure(false);
   const [insuranceOpened, { open: openInsurance, close: closeInsurance }] = useDisclosure(false);
@@ -58,7 +61,7 @@ export const EncounterHeader = (props: EncounterHeaderProps): JSX.Element => {
   };
 
   const handleTabChange = (tab: string): void => {
-    setActiveTab(tab);
+    setInternalActiveTab(tab);
     onTabChange?.(tab);
   };
 

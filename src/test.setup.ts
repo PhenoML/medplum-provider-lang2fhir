@@ -51,4 +51,11 @@ for (const filename of SEARCH_PARAMETER_BUNDLE_FILES) {
   indexSearchParameterBundle(readJson(filename) as Bundle<SearchParameter>);
 }
 
-Object.defineProperty(globalThis.window, 'sessionStorage', { value: new MemoryStorage() });
+const sessionStorage = new MemoryStorage();
+const localStorage = new MemoryStorage();
+
+Object.defineProperty(globalThis.window, 'sessionStorage', { value: sessionStorage });
+Object.defineProperty(globalThis, 'sessionStorage', { value: sessionStorage });
+// SearchPage.test.tsx reads and writes the last search through both globals.
+Object.defineProperty(globalThis.window, 'localStorage', { value: localStorage });
+Object.defineProperty(globalThis, 'localStorage', { value: localStorage });

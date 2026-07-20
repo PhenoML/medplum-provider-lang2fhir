@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { ContentType } from '@medplum/core';
 import type { Bundle, BundleEntry } from '@medplum/fhirtypes';
+import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { randomUUID } from 'crypto';
 
 interface BotDescription {
   src: string;
@@ -23,7 +23,7 @@ const Bots: BotDescription[] = [
   {
     src: 'src/bots/phenoml-cohort.ts',
     dist: 'dist/phenoml-cohort.js',
-  }, 
+  },
   {
     src: 'src/bots/clinical-trials-bot.ts',
     dist: 'dist/clinical-trials-bot.js',
@@ -39,7 +39,11 @@ const Bots: BotDescription[] = [
   {
     src: 'src/bots/referral-intake.ts',
     dist: 'dist/referral-intake.js',
-  }
+  },
+  {
+    src: 'src/bots/billing-acuity.ts',
+    dist: 'dist/billing-acuity.js',
+  },
 ];
 
 async function main(): Promise<void> {
@@ -63,7 +67,7 @@ async function main(): Promise<void> {
           resourceType: 'Bot',
           id: botIdPlaceholder,
           name: botName,
-          runtimeVersion: 'awslambda',//IMPORTANT: USE awslambda for production as per: https://www.medplum.com/docs/bots/running-bots-locally. Use vmcontext to run locally.
+          runtimeVersion: 'awslambda', //IMPORTANT: USE awslambda for production as per: https://www.medplum.com/docs/bots/running-bots-locally. Use vmcontext to run locally.
           timeout: 120,
           sourceCode: {
             contentType: ContentType.TYPESCRIPT,
@@ -130,6 +134,5 @@ function readBotFiles(description: BotDescription): Record<string, BundleEntry> 
   };
   return { srcEntry, distEntry };
 }
-
 
 main().catch(console.error);

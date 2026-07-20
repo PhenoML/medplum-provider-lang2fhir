@@ -859,6 +859,48 @@ describe('BillingTab', () => {
     windowOpenSpy.mockRestore();
   });
 
+  test('renders AI review evidence for marked charge items', async () => {
+    mockChargeItems([
+      {
+        ...mockChargeItem,
+        extension: [
+          {
+            url: 'https://example.org/fhir/StructureDefinition/billing-acuity-source',
+            valueString: 'billing-acuity',
+          },
+        ],
+        note: [{ text: 'Documented office visit' }],
+      },
+    ]);
+
+    await setup();
+
+    expect(await screen.findByText('AI review evidence')).toBeInTheDocument();
+    expect(screen.getByText('Documented office visit')).toBeInTheDocument();
+  });
+
+  test('removes a marked charge item from the evidence card', async () => {
+    const user = userEvent.setup();
+    mockChargeItems([
+      {
+        ...mockChargeItem,
+        extension: [
+          {
+            url: 'https://example.org/fhir/StructureDefinition/billing-acuity-source',
+            valueString: 'billing-acuity',
+          },
+        ],
+      },
+    ]);
+    const deleteSpy = vi.spyOn(medplum, 'deleteResource').mockResolvedValue({} as any);
+    await setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Actions for 99214' }));
+    await user.click(await screen.findByText('Remove'));
+
+    await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith('ChargeItem', 'charge-123'));
+  });
+
   test('handles error in encounter change', async () => {
     const setEncounter = vi.fn();
     const debouncedUpdateResource = mockDebouncedUpdate();
@@ -1009,7 +1051,7 @@ describe('BillingTab', () => {
           (resourceType === 'Claim' && mockClaim) || (resourceType === 'Bot' && candidUrlBot) || claimResponse
         )) as (
         resourceType: string
-      ) => ReadablePromise<WithId<Claim> | WithId<ClaimResponse> | WithId<Bot> | undefined>);
+      ) => ReadablePromise<any>);
       vi.spyOn(medplum, 'executeBot').mockResolvedValue({
         encounterId: 'candid-encounter-123',
         url: candidClaimUrl,

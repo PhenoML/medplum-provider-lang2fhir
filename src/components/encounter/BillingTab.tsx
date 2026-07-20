@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Button, Card, Flex, Group, Menu, Skeleton, Stack, Tooltip } from '@mantine/core';
+import { Button, Card, Flex, Group, Menu, Skeleton, Stack, Text, Tooltip } from '@mantine/core';
 import { useDebouncedCallback } from '@mantine/hooks';
 import { notifications, showNotification } from '@mantine/notifications';
 import type { WithId } from '@medplum/core';
@@ -21,17 +21,21 @@ import type {
 import { useMedplum } from '@medplum/react';
 import { IconCircleOff, IconDownload, IconFileText, IconSend } from '@tabler/icons-react';
 import type { JSX } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SAVE_TIMEOUT_MS } from '../../config/constants';
 import { useDebouncedUpdateResource } from '../../hooks/useDebouncedUpdateResource';
 import { ChartNoteStatus } from '../../types/encounter';
 import { getChargeItemsForEncounter } from '../../utils/chargeitems';
+import { buildReviewItems } from '../../utils/citations';
+import type { ReviewCodeItem } from '../../utils/citations';
 import { buildClaimFromEncounter } from '../../utils/claims';
+import { removeEncounterDiagnosis } from '../../utils/conditions';
 import { createSelfPayCoverage, isSelfPayCoverage } from '../../utils/coverage';
 import { showErrorNotification } from '../../utils/notifications';
 import { ChargeItemList } from '../ChargeItem/ChargeItemList';
 import { ConditionList } from '../Conditions/ConditionList';
 import { ClaimSubmittedPanel } from './ClaimSubmittedPanel';
+import { CodeEvidencePanel } from './review/CodeEvidencePanel';
 import { SubmitClaimModal } from './SubmitClaimModal';
 import { VisitDetailsPanel } from './VisitDetailsPanel';
 
@@ -58,6 +62,7 @@ export const BillingTab = (props: BillingTabProps): JSX.Element => {
   const [claimResponseLoading, setClaimResponseLoading] = useState(false);
 
   const debouncedUpdateResource = useDebouncedUpdateResource(medplum);
+  const reviewItems = useMemo(() => buildReviewItems(conditions, chargeItems), [conditions, chargeItems]);
 
   useEffect(() => {
     const fetchClaim = async (): Promise<void> => {
@@ -138,6 +143,25 @@ export const BillingTab = (props: BillingTabProps): JSX.Element => {
       await debouncedUpdateResource(updatedEncounter);
     },
     [encounter, setEncounter, debouncedUpdateResource]
+  );
+
+  const handleEvidenceRemove = useCallback(
+    async (item: ReviewCodeItem): Promise<void> => {
+      try {
+        if (item.kind === 'diagnosis') {
+          const condition = item.resource as Condition;
+          const diagnosis = await removeEncounterDiagnosis(medplum, encounter, condition);
+          setConditions((current) => current.filter((candidate) => candidate.id !== condition.id));
+          await handleDiagnosisChange(diagnosis);
+        } else if (item.resource.id) {
+          await medplum.deleteResource('ChargeItem', item.resource.id);
+          setChargeItems((current) => current.filter((candidate) => candidate.id !== item.resource.id));
+        }
+      } catch (err) {
+        showErrorNotification(err);
+      }
+    },
+    [encounter, handleDiagnosisChange, medplum]
   );
 
   const generateClaim = useCallback(
@@ -415,6 +439,15 @@ export const BillingTab = (props: BillingTabProps): JSX.Element => {
           onEncounterChange={handleEncounterChange}
         />
       </Group>
+
+      {reviewItems.length > 0 && (
+        <Card withBorder shadow="sm">
+          <Text fw={600} size="lg" mb="md">
+            AI review evidence
+          </Text>
+          <CodeEvidencePanel items={reviewItems} onRemove={handleEvidenceRemove} showQuotes />
+        </Card>
+      )}
 
       {encounter && (
         <ConditionList
