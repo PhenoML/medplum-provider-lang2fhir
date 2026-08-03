@@ -9,15 +9,19 @@ This example app is a fork of the [Medplum Charting Demo](https://github.com/med
 
 ### :robot: AI use cases powered by Lang2FHIR in this demo application
 
-- *new* search for Clinical Trials using Gemini
-- *new* generate a Research Study using language
+- *new* process a faxed referral 
+- *new* power medical billing 
 
+- Search for Clinical Trials using Gemini
+- Generate a Research Study using language
 - Upload pdfs and images and convert them to FHIR Questionnaire and QuestionnaireResponse resources
 - Describe plan definitions, medication requests, and care plans in natural language and have them converted to FHIR resources
 - AI medical scribe in the browser (using [Hugging Face's Transformers.js](https://huggingface.co/docs/transformers.js/en/index) with whisper-tiny model) to convert audio to FHIR resources
 - Describe a patient cohort in language and generate a FHIR Group resource
 
 ### :video_camera: Demo Videos
+
+[Latest Demo](https://youtu.be/kIDy11ZgrVk)
 
 [Updated Demo](https://www.youtube.com/watch?v=QXv3axkLbTE)
 
@@ -27,11 +31,11 @@ This example app is a fork of the [Medplum Charting Demo](https://github.com/med
 ### :gear: Getting Started
 
 PhenoML Auth Token:
-Follow instructions here to get started with PhenoML's Lang2FHIR, you'll need to create an account and get your credentials: [PhenoML Developer Docs](https://developer.pheno.ml/docs/getting-started), [PhenoML Plans](https://www.phenoml.com/pricing)
+Follow instructions here to get started with PhenoML's Lang2FHIR, you'll need to create an account and get your credentials: [PhenoML Developer Console](https://console.pheno.ml)
 
-This app uses PhenoML's Lang2FHIR API, which requires the auth token from your PhenoML account. Authentication is handled by bots, but the necessary secrets must be set up in your Medplum project. Importantly, PhenoML's Experiment plan is for non-production/non PHI use, you'll need to be on a Core plan to use lang2FHIR for production/PHI usage.
+This app uses PhenoML's Lang2FHIR API, which requires the auth token from your PhenoML account. Authentication is handled by bots, but the necessary secrets must be set up in your Medplum project.
 
-Your credentials can be accessed in your PhenoML account by signing in to the [PhenoMLDeveloper Portal](https://developer.pheno.ml) with your email to generate a one-time link. Navigate to [Getting Started](https://developer.pheno.ml/reference/getting-started#/) and copy the credentials populated. If your credentials aren't populated and you have signed up for a plan please contact support: [support@phenoml.com](mailto:support@phenoml.com)
+Your credentials can be accessed in your PhenoML account by signing in to the [Developer Console](https://developer.pheno.ml)
 
 Once you have copied your credentials you'll need to update them as secrets in your Medplum project. This can be done in the Medplum App. Navigate to admin page by clicking on Project in the Admin section of the sidebar. In the Secrets tab, click Add Secret and create secrets for your PhenoML client id and client secret with names of PHENOML_CLIENT_ID and PHENOML_CLIENT_SECRET. 
 
@@ -68,11 +72,10 @@ This app should run on `http://localhost:3000/`
 ### About PhenoML
 :sparkles: [PhenoML](https://phenoml.com/) is a developer platform for healthcare AI. 
 
-PhenoML's Lang2FHIR API converts natural language to FHIR resources. It's a powerful tool for healthcare AI, and it's used in this demo app to convert natural language to FHIR resources. For benchmarking results on lang2FHIR API performance and accuracy, see [PhenoML's Lang2FHIR API Benchmark](https://github.com/PhenoML/phenoml_benchmarks).
+PhenoML's Lang2FHIR API converts natural language to FHIR resources. It's a powerful tool for healthcare AI, and it's used in this demo app to convert natural language to FHIR resources. For benchmarking results on lang2FHIR API performance and accuracy, see [PhenoML's Lang2FHIR API Benchmark](https://github.com/PhenoML/phenoml_benchmarks). Stay tuned for updated benchmarks!
 
 - Read our [docs](https://developer.pheno.ml)
 - Check out our [Youtube channel](https://www.youtube.com/@phenomldev)
-- Come hang on [Discord](https://discord.gg/QgxDjNBxdV)
 
 ### About Medplum
 
